@@ -3,6 +3,7 @@ A set of general (for lack of better word) python utilities functions
 that use numpy natively.
 Felipe Menanteau, NCSA Oct 2014
 """
+import collections
 
 def query2dict_of_columns(query,dbhandle,array=False):
 
@@ -21,7 +22,7 @@ def query2dict_of_columns(query,dbhandle,array=False):
     # Get the description of the columns to make the dictionary
     desc = [d[0] for d in cur.description] 
 
-    querydic = {} # We will populate this one
+    querydic = collections.OrderedDict() # We will populate this one
     cols = zip(*list_of_tuples)
     for k in range(len(cols)):
         key = desc[k]
@@ -34,7 +35,7 @@ def query2dict_of_columns(query,dbhandle,array=False):
             querydic[key] = cols[k]    
     return querydic 
 
-def query2rec(query,dbhandle):
+def query2rec(query,dbhandle,verb=False):
     """
     Queries DB and returns results as a numpy recarray.
     """ 
@@ -44,5 +45,12 @@ def query2rec(query,dbhandle):
     cur = dbhandle.cursor()
     # Execute
     cur.execute(query)
-    # Return rec array
-    return numpy.rec.array(cur.fetchall(),names=[d[0] for d in cur.description] )
+    tuples = cur.fetchall()
+
+    # Return rec array                                                                                                                                          
+    if len(tuples)>0:
+        names  = [d[0] for d in cur.description]
+        return numpy.rec.array(tuples,names=names)
+    else:
+        if verb: print "# WARNING DB Query in query2rec() returned no results"
+	return False
