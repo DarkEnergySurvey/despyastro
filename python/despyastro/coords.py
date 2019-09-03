@@ -16,7 +16,7 @@
         coordinate transformations.
 
     COORDINATE TRANSFORMATIONS
-        euler:  
+        euler:
             A generic routine for transforming between Galactic, Celestial,
             and ecliptic coords.  The following wrapper routines are also
             supplied for convenience:
@@ -48,7 +48,7 @@
                     y = sin(pi/2-dec)*sin(ra)
                     z = cos(pi/2-dec)
 
-        xyz2eq: 
+        xyz2eq:
             inverse of eq2xyz
 
         sphdist:
@@ -59,7 +59,7 @@
             shift the input longitude.  By default wrap the coordinate to
             -180,180.  If a shift is entered, return the new value
             lon-shift such that the range is still [0,360)
-            
+
         shiftra:
             shift right ascension.  This just calls shiftlon
 
@@ -150,20 +150,20 @@ def euler(ai_in, bi_in, select, b1950=False, dtype='f8'):
         Transform between Galactic, celestial, and ecliptic coordinates.
 
     CALLING SEQUENCE:
-        long_out, lat_out = 
+        long_out, lat_out =
             euler(long_in, lat_in, type, b1950=False, dtype='f8')
 
     INPUTS:
-       long_in - Input Longitude in DEGREES, scalar or vector.  
+       long_in - Input Longitude in DEGREES, scalar or vector.
        lat_in  - Input Latitude in DEGREES
-       select  - Integer (1-6) specifying type of coordinate transformation.  
+       select  - Integer (1-6) specifying type of coordinate transformation.
 
       select   From          To        |   select      From            To
-       1     RA-Dec (2000)  Galactic   |     4       Ecliptic      RA-Dec    
-       2     Galactic       RA-DEC     |     5       Ecliptic      Galactic  
-       3     RA-Dec         Ecliptic   |     6       Galactic      Ecliptic  
+       1     RA-Dec (2000)  Galactic   |     4       Ecliptic      RA-Dec
+       2     Galactic       RA-DEC     |     5       Ecliptic      Galactic
+       3     RA-Dec         Ecliptic   |     6       Galactic      Ecliptic
 
-      Celestial coordinates (RA, Dec) should be given in equinox J2000 
+      Celestial coordinates (RA, Dec) should be given in equinox J2000
       unless the b1950=True keyword is set.
 
     OUTPUTS:
@@ -171,8 +171,8 @@ def euler(ai_in, bi_in, select, b1950=False, dtype='f8'):
        lat_out  - Output Latitude in DEGREES
 
     INPUT KEYWORD:
-       b1950 - If this keyword is true then input and output 
-             celestial and ecliptic coordinates should be given in equinox 
+       b1950 - If this keyword is true then input and output
+             celestial and ecliptic coordinates should be given in equinox
              B1950.
     REVISION HISTORY:
        Written W. Landsman,  February 1987
@@ -197,48 +197,48 @@ def euler(ai_in, bi_in, select, b1950=False, dtype='f8'):
     #  eps = 23.4392911111d           Obliquity of the ecliptic
     #  alphaG = 192.85948d            Right Ascension of Galactic North Pole
     #  deltaG = 27.12825d             Declination of Galactic North Pole
-    #  lomega = 32.93192d             Galactic longitude of celestial equator  
+    #  lomega = 32.93192d             Galactic longitude of celestial equator
     #  alphaE = 180.02322d            Ecliptic longitude of Galactic North Pole
     #  deltaE = 29.811438523d         Ecliptic latitude of Galactic North Pole
-    #  Eomega  = 6.3839743d           Galactic longitude of ecliptic equator              
+    #  Eomega  = 6.3839743d           Galactic longitude of ecliptic equator
     # Parameters for all the different conversions
     if b1950:
 
-        equinox = '(B1950)' 
-        psi    = numpy.array([ 0.57595865315, 4.9261918136,  
-                              0.00000000000, 0.0000000000,  
+        equinox = '(B1950)'
+        psi    = numpy.array([ 0.57595865315, 4.9261918136,
+                              0.00000000000, 0.0000000000,
                               0.11129056012, 4.7005372834], dtype=dtype)
-        stheta = numpy.array([ 0.88781538514,-0.88781538514, 
-                              0.39788119938,-0.39788119938, 
+        stheta = numpy.array([ 0.88781538514,-0.88781538514,
+                              0.39788119938,-0.39788119938,
                               0.86766174755,-0.86766174755], dtype=dtype)
-        ctheta = numpy.array([ 0.46019978478, 0.46019978478, 
-                              0.91743694670, 0.91743694670, 
-                              0.49715499774, 0.49715499774], dtype=dtype) 
-        phi  =   numpy.array([ 4.9261918136,  0.57595865315, 
-                              0.0000000000, 0.00000000000, 
+        ctheta = numpy.array([ 0.46019978478, 0.46019978478,
+                              0.91743694670, 0.91743694670,
+                              0.49715499774, 0.49715499774], dtype=dtype)
+        phi  =   numpy.array([ 4.9261918136,  0.57595865315,
+                              0.0000000000, 0.00000000000,
                               4.7005372834, 0.11129056012], dtype=dtype)
 
     else:
 
         equinox = '(J2000)'
 
-        psi    = numpy.array([ 0.57477043300, 4.9368292465,  
-                              0.00000000000, 0.0000000000,    
+        psi    = numpy.array([ 0.57477043300, 4.9368292465,
+                              0.00000000000, 0.0000000000,
                               0.11142137093, 4.71279419371], dtype=dtype)
-        stheta = numpy.array([ 0.88998808748,-0.88998808748, 
-                              0.39777715593,-0.39777715593, 
+        stheta = numpy.array([ 0.88998808748,-0.88998808748,
+                              0.39777715593,-0.39777715593,
                               0.86766622025,-0.86766622025], dtype=dtype)
-        ctheta = numpy.array([ 0.45598377618, 0.45598377618, 
-                              0.91748206207, 0.91748206207, 
+        ctheta = numpy.array([ 0.45598377618, 0.45598377618,
+                              0.91748206207, 0.91748206207,
                               0.49714719172, 0.49714719172], dtype=dtype)
-        phi    = numpy.array([ 4.9368292465,  0.57477043300, 
-                              0.0000000000, 0.00000000000, 
+        phi    = numpy.array([ 4.9368292465,  0.57477043300,
+                              0.0000000000, 0.00000000000,
                               4.71279419371, 0.11142137093], dtype=dtype)
 
     # zero offset
-    i  = select - 1 
+    i  = select - 1
     a  = ai*D2R - phi[i]
-    
+
     b = bi*D2R
     sb = sin(b)
     cb = cos(b)
@@ -300,7 +300,7 @@ def gal2eq(l, b, b1950=False, dtype='f8'):
         b1950:  If True, use b1950 coordiates.  By default j2000 are used.
         dtype:  The datatype of the output arrays.  Default is f8
     OUTPUTS
-        ra, dec:  Equatorial longitude and latitude.  The returned value is 
+        ra, dec:  Equatorial longitude and latitude.  The returned value is
             always a Numpy array with the specified dtype
     REVISION HISTORY
         Created Erin Sheldon, NYU, 2008-07-02
@@ -324,7 +324,7 @@ def eq2ec(ra, dec, b1950=False, dtype='f8'):
         b1950:  If True, use b1950 coordiates.  By default j2000 are used.
         dtype:  The datatype of the output arrays.  Default is f8
     OUTPUTS
-        lam, beta:  Ecliptic longitude and latitude.  The returned value is 
+        lam, beta:  Ecliptic longitude and latitude.  The returned value is
             always a Numpy array with the specified dtype
     REVISION HISTORY
         Created Erin Sheldon, NYU, 2008-07-02
@@ -348,7 +348,7 @@ def ec2eq(lam, beta, b1950=False, dtype='f8'):
         b1950:  If True, use b1950 coordiates.  By default j2000 are used.
         dtype:  The datatype of the output arrays.  Default is f8
     OUTPUTS
-        ra,dec:  Equatorial longitude and latitude.  The returned value is 
+        ra,dec:  Equatorial longitude and latitude.  The returned value is
             always a Numpy array with the specified dtype
     REVISION HISTORY
         Created Erin Sheldon, NYU, 2008-07-02
@@ -396,7 +396,7 @@ def gal2ec(l, b, b1950=False, dtype='f8'):
         b1950:  If True, use b1950 coordiates.  By default j2000 are used.
         dtype:  The datatype of the output arrays.  Default is f8
     OUTPUTS
-        lam,beta:  Ecliptic longitude and latitude.  The returned value is 
+        lam,beta:  Ecliptic longitude and latitude.  The returned value is
             always a Numpy array with the specified dtype
     REVISION HISTORY
         Created Erin Sheldon, NYU, 2008-07-02
@@ -460,7 +460,7 @@ def xyz2eq(xin,yin,zin, units='deg'):
 
     parameters
     ----------
-    x,y,z: 
+    x,y,z:
         scalars or arrays as given by eq2xyz
     units: string, optional
         'deg' if the output is to be degrees, 'rad' if it is to be radians.
@@ -486,7 +486,7 @@ def xyz2eq(xin,yin,zin, units='deg'):
     # theta->ra, phi->dec
     return theta,phi
 
-   
+
 
 def sphdist(ra1, dec1, ra2, dec2, units=['deg','deg']):
     """
@@ -495,14 +495,14 @@ def sphdist(ra1, dec1, ra2, dec2, units=['deg','deg']):
     parameters
     ----------
     ra1,dec1,ra2,dec2: scalar or array
-        Coordinates of two points or sets of points. 
+        Coordinates of two points or sets of points.
         Must be the same length.
     units: sequence
         A sequence containing the units of the input and output.  Default
         ['deg',deg'], which means inputs and outputs are in degrees.  Units
         can be 'deg' or 'rad'
     """
-    
+
     units_in,units_out = units
 
     # note x,y,z from eq2xyz always returns 8-byte float
@@ -547,7 +547,7 @@ def gcirc(ra1deg,dec1deg,ra2deg,dec2deg,getangle=False):
     dis = arccos(cosdis)
 
     if getangle:
-        theta = arctan2( sin(radiff), 
+        theta = arctan2( sin(radiff),
                          (sindec1*cosradiff - cosdec1*sindec2/cosdec2) ) - HALFPI
         return dis,theta
     else:
@@ -582,7 +582,7 @@ def atbound2(theta, phi):
     w, = numpy.where( numpy.abs(theta) == 90.0 )
     if w.size > 0:
         phi[w] = 0.0
-           
+
 #
 # SDSS specific conversions
 #
@@ -593,10 +593,10 @@ def eq2sdss(ra_in, dec_in, dtype='f8'):
     NAME:
       eq2sdss
     PURPOSE:
-       Convert from ra, dec to the corrected clambda, ceta 
+       Convert from ra, dec to the corrected clambda, ceta
        SDSS survey coordinate system.  It is corrected so that the
        longitude eta ranges from [-180.0, 180.0] and the latitude
-       lambda ranges from [-90.0,90.0].  The standard lambda/eta 
+       lambda ranges from [-90.0,90.0].  The standard lambda/eta
        both range from [-180.0,180.0] which doesn't make sense.
        NOTE: lambda is often referred to as longitude but this
        is incorrect since it has poles at [-90,90]
@@ -605,18 +605,18 @@ def eq2sdss(ra_in, dec_in, dtype='f8'):
       from esutil import coords
       (clambda, ceta) = coords.eq2sdss(ra, dec, dtype='f8')
 
-    INPUTS: 
-      ra: Equatorial latitude in degrees. 
-      dec: Equatorial longitude in degrees. 
+    INPUTS:
+      ra: Equatorial latitude in degrees.
+      dec: Equatorial longitude in degrees.
     OPTIONAL INPUTS:
-        dtype: The data type of output.  Default is 'f8'. See 
+        dtype: The data type of output.  Default is 'f8'. See
         numpy.typeDict for a list of possible types.
         dtype: The data type of output.  Default is 'f8'.
 
-    OUTPUTS: 
+    OUTPUTS:
       clambda: Corrected Survey longitude (actually lattitude) in degrees
       ceta: Corrected Survey latitude (actually logitude) in degrees
-      
+
     REVISION HISTORY:
       Written: 11-March-2006  Converted from IDL program.
     """
@@ -640,14 +640,14 @@ def eq2sdss(ra_in, dec_in, dtype='f8'):
 
     # generate x,y,z on unit sphere, clearing memory as we go
     cdec = cos(dec)
-    
+
     x = cos(ra)*cdec
     y = sin(ra)*cdec
 
-    ra = 0; cdec = 0 # mem 
-    
+    ra = 0; cdec = 0 # mem
+
     z = numpy.sin(dec)
-    
+
     dec = 0 # mem
 
     # generate clambda, ceta
@@ -657,7 +657,7 @@ def eq2sdss(ra_in, dec_in, dtype='f8'):
     arcsin(x, x); clambda=x
     clambda *= -1
 
-    
+
     arctan2( z, y, z); ceta = z
     ceta -= _sdsspar['etapole']
 
@@ -665,7 +665,7 @@ def eq2sdss(ra_in, dec_in, dtype='f8'):
     ceta *= R2D
 
     atbound(ceta, -180.0, 180.0)
-    
+
     return (clambda, ceta)
 
 def sdss2eq(clambda_in, ceta_in, dtype='f8'):
@@ -674,27 +674,27 @@ def sdss2eq(clambda_in, ceta_in, dtype='f8'):
       sdss2eq
     PURPOSE:
        Convert corrected clambda, ceta SDSS survey coordinate system t
-       equatorial coords.  
+       equatorial coords.
 
     CALLING SEQUENCE:
       from esutil import coords
       (ra, dec) = coords.sdss2eq(clambda, ceta, dtype='f8')
 
-    INPUTS: 
+    INPUTS:
       clambda: Corrected Survey longitude (actually lattitude) in degrees
       ceta: Corrected Survey latitude (actually logitude) in degrees
     OPTIONAL INPUTS:
-        dtype: The data type of output.  Default is 'f8'. See 
+        dtype: The data type of output.  Default is 'f8'. See
         numpy.typeDict for a list of possible types.
 
-    OUTPUTS: 
-      ra: Equatorial latitude in degrees. 
-      dec: Equatorial longitude in degrees. 
-      
+    OUTPUTS:
+      ra: Equatorial latitude in degrees.
+      dec: Equatorial longitude in degrees.
+
     REVISION HISTORY:
       Written: 11-March-2006  Converted from IDL program.
     """
-    
+
     # Make a copy as an array. ndmin=1 to avoid messed up scalar arrays
     clambda = numpy.array(clambda_in, ndmin=1, copy=True, dtype=dtype)
     ceta = numpy.array(ceta_in, ndmin=1, copy=True, dtype=dtype)
@@ -711,7 +711,7 @@ def sdss2eq(clambda_in, ceta_in, dtype='f8'):
     x = -sin(clambda)
     y = cos(ceta + _sdsspar['etapole'])*cos(clambda)
     z = sin(ceta + _sdsspar['etapole'])*cos(clambda)
-    
+
     ra = arctan2( y, x ) + _sdsspar['node']
     dec = arcsin(z)
 
@@ -727,7 +727,7 @@ def _eq2survey(ra_in, dec_in, dtype='f8'):
     NAME:
       _eq2survey
     PURPOSE:
-       Convert from ra, dec to the lambda, eta 
+       Convert from ra, dec to the lambda, eta
        SDSS survey coordinate system.  Note this coordinate system is
        not well defined.  Recommend you use csurvey coords.
 
@@ -735,17 +735,17 @@ def _eq2survey(ra_in, dec_in, dtype='f8'):
       from esutil import coords
       (lambda, eta) = coords._eq2survey(ra, dec, dtype='f8')
 
-    INPUTS: 
-      ra: Equatorial latitude in degrees. 
-      dec: Equatorial longitude in degrees. 
+    INPUTS:
+      ra: Equatorial latitude in degrees.
+      dec: Equatorial longitude in degrees.
     OPTIONAL INPUTS:
-        dtype: The data type of output.  Default is 'f8'. See 
+        dtype: The data type of output.  Default is 'f8'. See
         numpy.typeDict for a list of possible types.
 
-    OUTPUTS: 
+    OUTPUTS:
       lambda: SDSS Survey longitude (actually lattitude) in degrees
       eta: SDSS Survey latitude (actually logitude) in degrees
-      
+
     REVISION HISTORY:
       Written: 11-March-2006  Converted from IDL program.
     """
@@ -771,14 +771,14 @@ def _eq2survey(ra_in, dec_in, dtype='f8'):
 
     # generate x,y,z on unit sphere, clearing memory as we go
     cdec = cos(dec)
-    
+
     x = cos(ra)*cdec
     y = sin(ra)*cdec
 
-    ra = 0; cdec = 0 # mem 
-    
+    ra = 0; cdec = 0 # mem
+
     z = sin(dec)
-    
+
     dec = 0 # mem
 
     # generate lam, eta
@@ -788,7 +788,7 @@ def _eq2survey(ra_in, dec_in, dtype='f8'):
     arcsin(x, x); lam=x
     lam *= -1
 
-    
+
     arctan2( z, y, z); eta = z
     eta -= _sdsspar['etapole']
 
@@ -814,23 +814,23 @@ def _survey2eq(ra, dec, dtype='f8'):
       _survey2eq
     PURPOSE:
        Convert clambda, ceta SDSS survey coordinate system to
-       equatorial coords.  
+       equatorial coords.
 
     CALLING SEQUENCE:
       from esutil import coords
       (ra, dec) = coords._survey2eq(lam, eta, dtype='f8')
 
-    INPUTS: 
+    INPUTS:
       lambda: Survey longitude (actually lattitude) in degrees
       eta:    Survey latitude (actually logitude) in degrees
     OPTIONAL INPUTS:
-        dtype: The data type of output.  Default is 'f8'. See 
+        dtype: The data type of output.  Default is 'f8'. See
         numpy.typeDict for a list of possible types.
-      
-    OUTPUTS: 
-      ra: Equatorial latitude in degrees. 
-      dec: Equatorial longitude in degrees. 
-      
+
+    OUTPUTS:
+      ra: Equatorial latitude in degrees.
+      dec: Equatorial longitude in degrees.
+
     REVISION HISTORY:
       Written: 11-March-2006  Converted from IDL program.
     """
@@ -914,16 +914,16 @@ def shiftlon(lon_input, shift=None, wrap=True):
 
         If the shift keyword is sent, then the longitude is simply shifted by
         the input value and then constrained to be again on the [0,360) range.
-    
+
     Input:
         A longitude or array of longitudes on the range [0,360)
 
     Keywords:
-        shift: 
+        shift:
             If shift is sent, then lon-shift is returned, constrained to still
             be on [0,360).
-        
-        wrap: 
+
+        wrap:
             If shift is not sent, and wrap is True, wrap the range to
             [-180,180]
 
@@ -976,17 +976,17 @@ def shiftra(ra, shift=None, wrap=True):
 
         If the shift keyword is sent, then the longitude is simply shifted by
         the input value and then constrained to be again on the [0,360) range.
-    
+
     Input:
         ra or any other longitude on the range [0,360)
 
     Keywords:
-        shift: 
+        shift:
 
             If shift is sent, then ra-shift is returned, constrained to still
             be on [0,360).
-        
-        wrap: 
+
+        wrap:
             If shift is not sent, and wrap is True, wrap the range to
             [-180,180]
 
@@ -1010,7 +1010,7 @@ def radec2aitoff(ra, dec):
     delta = dec*D2R
 
     cdec = cos(delta)
-    
+
     denom = sqrt(1.0 + cdec*cos(alpha2))
 
     x = cdec*sin(alpha2)*2.*r2/denom
@@ -1024,10 +1024,10 @@ def radec2aitoff(ra, dec):
     x180 = where (sa gt 180.0)
     if x180[0] ne -1 then sa[x180]  = sa[x180] - 360.
     alpha2 = sa/(2*!RADEG)
-    delta = b/!RADEG   
-    r2 = sqrt(2.)    
-    f = 2*r2/!PI     
-    cdec = cos(delta)    
+    delta = b/!RADEG
+    r2 = sqrt(2.)
+    f = 2*r2/!PI
+    cdec = cos(delta)
     denom =sqrt(1. + cdec*cos(alpha2))
     x = cdec*sin(alpha2)*2.*r2/denom
     y = sin(delta)*r2/denom
@@ -1053,11 +1053,11 @@ def randsphere(num, ra_range=None, dec_range=None, system='eq'):
     Generate random points on the sphere
 
     You can limit the range in ra and dec.  To generate on a spherical cap, see
-    randcap() 
+    randcap()
 
     parameters
     ----------
-    num: integer 
+    num: integer
         The number of randoms to generate
     ra_range: list, optional
         Should be within range [0,360].  Default [0,360]
@@ -1103,7 +1103,7 @@ def randsphere(num, ra_range=None, dec_range=None, system='eq'):
     rad2deg(dec,dec)
     # now in range [-90,90.0)
     dec -= 90.0
-    
+
     if system == 'xyz':
         x,y,z = eq2xyz(ra, dec)
         return x,y,z
@@ -1156,7 +1156,7 @@ def randcap(nrand, ra, dec, rad, get_radius=False):
     cospsi = cos(rand_posangle)
     costheta2 = costheta*cosr + sintheta*sinr*cospsi
 
-    numpy.clip(costheta2, -1, 1, costheta2)                    
+    numpy.clip(costheta2, -1, 1, costheta2)
 
     # gives [0,pi)
     theta2 = arccos(costheta2)
@@ -1164,7 +1164,7 @@ def randcap(nrand, ra, dec, rad, get_radius=False):
 
     cosDphi = (cosr - costheta*costheta2)/(sintheta*sintheta2)
 
-    numpy.clip(cosDphi, -1, 1, cosDphi)                    
+    numpy.clip(cosDphi, -1, 1, cosDphi)
     Dphi = arccos(cosDphi)
 
     # note fancy usage of where
