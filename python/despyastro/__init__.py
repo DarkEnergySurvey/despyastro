@@ -1,10 +1,6 @@
-__author__  = "Felipe Menanteau"
-__version__ = '0.3.9'
-version = __version__
-
 """
- A collection of Astro-related Python functions useful for DESDM
- Python-based modules
+    A collection of Astro-related Python functions useful for DESDM
+    Python-based modules
 """
 
 from . import astrometry
@@ -13,3 +9,7 @@ from . import tableio
 from . import wcsutil
 from . import genutil
 from .genutil import *
+
+__author__ = "Felipe Menanteau"
+__version__ = '0.3.9'
+version = __version__
