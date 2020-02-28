@@ -3,6 +3,7 @@
 import unittest
 import os
 import shutil
+import math
 import stat
 import sys
 import copy
@@ -13,6 +14,7 @@ from collections import OrderedDict
 from io import StringIO
 from mock import patch
 import numpy as np
+from astropy.io import fits
 
 from despyastro import coords as cds
 
@@ -156,9 +158,21 @@ class TestCoords(unittest.TestCase):
         self.assertAlmostEqual(long, back_long[0], 5)
         self.assertAlmostEqual(lat, back_lat[0], 5)
 
+        long = 0.15
+        lat = 1.081
+        x, y, z = cds.eq2xyz(long, lat, units='rad')
+
+        back_long, back_lat = cds.xyz2eq(x, y, z, units='rad')
+        self.assertAlmostEqual(long, back_long[0], 5)
+        self.assertAlmostEqual(lat, back_lat[0], 5)
+
+
     def test_sphdist(self):
         dist = cds.sphdist(15., -15., 25., 30.)
         self.assertAlmostEqual(46.020717, dist[0], 5)
+
+        dist = cds.sphdist(0.25, -0.8, 1.2, 0.1, units=['rad','rad'])
+        self.assertAlmostEqual(1.232774, dist[0], 5)
 
     def test_gcirc(self):
         dist = cds.gcirc(15.,-15.,25.,30.)
@@ -312,5 +326,113 @@ class TestCoords(unittest.TestCase):
 
         ra_str = '5:30'
         self.assertEqual(75.5, cds.ra_parse(ra_str))
+
+    def test_fitsheader2dict(self):
+        header = fits.Header()
+        header.append(('NAME', 'hello'))
+        header.append(('ra', 3.65))
+
+        hdr = cds.fitsheader2dict(header)
+        self.assertEqual(3.65, hdr['ra'])
+        self.assertEqual('hello', hdr['name'])
+
+    def test_shiftlon(self):
+        long = [10., 50., 385]
+        shifted = cds.shiftlon(long)
+
+        self.assertEqual(shifted[0], 10.)
+        self.assertEqual(shifted[2], 25.)
+
+        shifted = cds.shiftlon(long, wrap=False)
+        self.assertEqual(shifted[0], 10.)
+        self.assertEqual(shifted[2], 385.)
+
+        shifted = cds.shiftlon(long, 20.)
+        self.assertEqual(shifted[0], 350.)
+        self.assertEqual(shifted[2], 365.)
+
+        shifted = cds.shiftlon(long, -20.)
+        self.assertEqual(shifted[0], 30.)
+        self.assertEqual(shifted[2], 45.)
+
+    def test_shiftra(self):
+        long = [10., 50., 385]
+        shifted = cds.shiftra(long)
+
+        self.assertEqual(shifted[0], 10.)
+        self.assertEqual(shifted[2], 25.)
+
+        shifted = cds.shiftra(long, wrap=False)
+        self.assertEqual(shifted[0], 10.)
+        self.assertEqual(shifted[2], 385.)
+
+        shifted = cds.shiftra(long, 20.)
+        self.assertEqual(shifted[0], 350.)
+        self.assertEqual(shifted[2], 365.)
+
+        shifted = cds.shiftra(long, -20.)
+        self.assertEqual(shifted[0], 30.)
+        self.assertEqual(shifted[2], 45.)
+
+    def test_radec2aitoff(self):
+        r, d = cds.radec2aitoff(5.743, -12.15)
+        self.assertAlmostEqual(r[0], 6.27052, 5)
+        self.assertAlmostEqual(d[0], -13.474167, 5)
+
+    def test_check_range(self):
+        allowed = [0., 180.]
+        rng = cds._check_range(None, allowed)
+        self.assertEqual(rng, allowed)
+
+        rng = cds._check_range([10., 20.], allowed)
+        self.assertEqual(rng, [10., 20.])
+
+    def test_check_range_errors(self):
+        self.assertRaises(ValueError, cds._check_range, 5, [10, 20])
+
+        self.assertRaises(ValueError, cds._check_range, [0, 15], [10, 20])
+
+        self.assertRaises(ValueError, cds._check_range, [15, 25], [10, 20])
+
+    def test_randsphere(self):
+        r, d = cds.randsphere(155, [0, 15], [-5, 5])
+        self.assertEqual(0, len(np.where(r < 0)[0]))
+        self.assertEqual(len(r), len(d))
+        self.assertEqual(len(r), 155)
+        self.assertEqual(155, len(np.where(r <= 15)[0]))
+
+        self.assertEqual(0, len(np.where(d < -5)[0]))
+        self.assertEqual(155, len(np.where(d <= 5)[0]))
+
+        x, y, z = cds.randsphere(155, [0, 15], [-5, 5], system='xyz')
+        self.assertEqual(len(x), len(z))
+        self.assertEqual(len(x), len(y))
+        self.assertEqual(len(x), 155)
+
+        temp = np.ones(155)
+        w = x*x + y*y + z*z
+        self.assertTrue(np.allclose((x*x + y*y + z*z), temp, atol=0.00001))
+
+    def test_randcap(self):
+        r, d = cds.randcap(155, 22.5, -10, 10)
+        r = r - 22.5
+        d = d + 10
+        temp = np.sqrt(r*r + d*d)
+        self.assertTrue(max(temp) < 10.4) # to accound for testing in xyz rather than sperical
+
+        r, d, rad = cds.randcap(155, 22.5, -10, 10, True)
+        self.assertEqual(len(rad), 155)
+        rad = np.rad2deg(rad)
+        self.assertTrue(max(rad) <= 10.0)
+
+    def test_rect_area(self):
+        sky = 4. * 180. * 180. / math.pi
+
+        area = cds.rect_area(0., 5., 0., 5.)
+        self.assertTrue(area < 25.)
+        self.assertTrue(area > (0.99 * 25.))
+
+        self.assertAlmostEqual(sky / 8., cds.rect_area(0., 90., 0., 90.), 5)
+
 if __name__ == '__main__':
     unittest.main()
