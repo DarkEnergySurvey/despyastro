@@ -171,11 +171,11 @@ class TestCoords(unittest.TestCase):
         low = 0.
         hi = 360.
         d = np.array(range(-100,400, 10), dtype='f8')
-        print(d)
+        #print(d)
         self.assertTrue(len(np.where(d < low)[0]) > 0)
         self.assertTrue(len(np.where(d > hi)[0]) > 0)
         cds.atbound(d, low, hi)
-        print(d)
+        #print(d)
         self.assertTrue(len(np.where(d < low)[0]) == 0)
         self.assertTrue(len(np.where(d > hi)[0]) == 0)
 
@@ -183,5 +183,134 @@ class TestCoords(unittest.TestCase):
         cds.atbound(d, low, hi)
         self.assertTrue(d.all() == new_d.all())
 
+    def test_atbound2(self):
+        theta = np.array(range(-300,400, 10), dtype='f8')
+        phi = np.array(range(-300,400, 10), dtype='f8')
+
+        self.assertTrue(len(np.where(theta < -180.)[0]) > 0)
+        self.assertTrue(len(np.where(theta > 180.)[0]) > 0)
+        self.assertTrue(len(np.where(phi < 0.)[0]) > 0)
+        self.assertTrue(len(np.where(phi > 360.)[0]) > 0)
+
+        cds.atbound2(theta, phi)
+
+        self.assertTrue(len(np.where(theta < -180.)[0]) == 0)
+        self.assertTrue(len(np.where(theta > 180.)[0]) == 0)
+        self.assertTrue(len(np.where(phi < 0.)[0]) == 0)
+        self.assertTrue(len(np.where(phi > 360.)[0]) == 0)
+
+        theta = np.array(range(-30,40, 10), dtype='f8')
+        phi = np.array(range(0,40, 5), dtype='f8')
+
+        t_theta = copy.deepcopy(theta)
+        t_phi = copy.deepcopy(phi)
+
+        cds.atbound2(theta, phi)
+        self.assertTrue(np.array_equal(theta, t_theta))
+        self.assertTrue(np.array_equal(phi, t_phi))
+
+    def test_eq2sdss_errors(self):
+        ra = [0, 1]
+        dec = [5, 10, 15]
+        self.assertRaises(ValueError, cds.eq2sdss, ra, dec)
+
+        ra = [-5, 10]
+        dec = [-5, 10]
+        self.assertRaises(ValueError, cds.eq2sdss, ra, dec)
+
+        ra = [375, 10]
+        self.assertRaises(ValueError, cds.eq2sdss, ra, dec)
+
+        ra = [10, 50]
+        dec = [-95,82]
+        self.assertRaises(ValueError, cds.eq2sdss, ra, dec)
+
+        dec = [-82, 99]
+        self.assertRaises(ValueError, cds.eq2sdss, ra, dec)
+
+    def test_eq2sdss(self):
+        ra = [10, 20]
+        dec = [-30, 50]
+        clambda, ceta = cds.eq2sdss(ra, dec)
+        self.assertAlmostEqual(clambda[0], -4.32875, 5)
+        self.assertAlmostEqual(ceta[1], 96.52504, 5)
+
+    def test_sdss2eq_errors(self):
+        clambda = [-99, 85]
+        ceta = [10, 20]
+        self.assertRaises(ValueError, cds.sdss2eq, clambda, ceta)
+
+        clambda = [-85, 99]
+        self.assertRaises(ValueError, cds.sdss2eq, clambda, ceta)
+
+        clambda = [-85, 62]
+        ceta = [-190, 125]
+        self.assertRaises(ValueError, cds.sdss2eq, clambda, ceta)
+
+        ceta = [-125, 190]
+        self.assertRaises(ValueError, cds.sdss2eq, clambda, ceta)
+
+    def test_sdss2eq(self):
+        clambda = [-4.32875, -9.57658]
+        ceta = [177.59467, 96.52504]
+
+        ra, dec = cds.sdss2eq(clambda, ceta)
+        self.assertAlmostEqual(ra[0], 10.0, 5)
+        self.assertAlmostEqual(dec[1], 50.0, 5)
+
+    def test_eq2survey_errors(self):
+        ra = [0, 1]
+        dec = [5, 10, 15]
+        self.assertRaises(ValueError, cds._eq2survey, ra, dec)
+
+        ra = [-5, 10]
+        dec = [-5, 10]
+        self.assertRaises(ValueError, cds._eq2survey, ra, dec)
+
+        ra = [375, 10]
+        self.assertRaises(ValueError, cds._eq2survey, ra, dec)
+
+        ra = [10, 50]
+        dec = [-95,82]
+        self.assertRaises(ValueError, cds._eq2survey, ra, dec)
+
+        dec = [-82, 99]
+        self.assertRaises(ValueError, cds._eq2survey, ra, dec)
+
+    def test_eq2survey(self):
+        ra = [10, 20]
+        dec = [-30, 50]
+        lambda_, eta = cds._eq2survey(ra, dec)
+        self.assertAlmostEqual(lambda_[0], -175.67125, 5)
+        self.assertAlmostEqual(eta[1], -83.47496, 5)
+
+    def test_dec_parse(self):
+        dec_str = '5:25:30.8'
+        dec = cds.dec_parse(dec_str)
+        self.assertAlmostEqual(dec, 5.425222, 5)
+
+        #dec_str = '-5:25:30.8'
+        #ndec = cds.dec_parse(dec_str)
+        #self.assertAlmostEqual(-1. * dec, ndec, 9)
+
+        dec_str = '5'
+        self.assertEqual(5., cds.dec_parse(dec_str))
+
+        dec_str = '5:30'
+        self.assertEqual(5.5, cds.dec_parse(dec_str))
+
+    def test_ra_parse(self):
+        ra_str = '05:25:22'
+        ra = cds.ra_parse(ra_str)
+        self.assertAlmostEqual(ra, 75.422778, 5)
+
+        ra = cds.ra_parse(ra_str, False)
+        self.assertAlmostEqual(ra, 5.422778, 5)
+
+        ra_str = '5'
+        self.assertEqual(75., cds.ra_parse(ra_str))
+
+        ra_str = '5:30'
+        self.assertEqual(75.5, cds.ra_parse(ra_str))
 if __name__ == '__main__':
     unittest.main()
