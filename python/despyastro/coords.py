@@ -818,11 +818,10 @@ def dec_parse(decstring):
     ds = decstring.split(':')
     lds = len(ds)
     mult = 1.0
+    if decstring.startswith('-'):
+        mult = -1.
     if lds >= 1:
-        deg = float(ds[0])
-        if deg < 0.:
-            mult = -1.
-            deg = -deg
+        deg = abs(float(ds[0]))
         dec += deg
     if lds >= 2:
         minutes = float(ds[1])
