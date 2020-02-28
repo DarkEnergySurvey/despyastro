@@ -2,7 +2,7 @@
 
 import unittest
 import os
-import shutil
+import stat
 import math
 import stat
 import sys
@@ -17,6 +17,22 @@ import numpy as np
 from astropy.io import fits
 
 from despyastro import coords as cds
+from despyastro import genutil as gu
+
+import despydmdb.desdmdbi as dmdbi
+from MockDBI import MockConnection
+
+
+@contextmanager
+def capture_output():
+    new_out, new_err = StringIO(), StringIO()
+    old_out, old_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout, sys.stderr = new_out, new_err
+        yield sys.stdout, sys.stderr
+    finally:
+        sys.stdout, sys.stderr = old_out, old_err
+
 
 class TestCoords(unittest.TestCase):
     def test_euler_J2000_galactic(self):
@@ -433,6 +449,80 @@ class TestCoords(unittest.TestCase):
         self.assertTrue(area > (0.99 * 25.))
 
         self.assertAlmostEqual(sky / 8., cds.rect_area(0., 90., 0., 90.), 5)
+
+
+
+class TestGenUtil(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sfile = 'services.ini'
+        open(cls.sfile, 'w').write("""
+
+[db-maximal]
+PASSWD  =   maximal_passwd
+name    =   maximal_name_1    ; if repeated last name wins
+user    =   maximal_name      ; if repeated key, last one wins
+Sid     =   maximal_sid       ;comment glued onto value not allowed
+type    =   POSTgres
+server  =   maximal_server
+
+[db-minimal]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   oracle
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+        cls.dbh = dmdbi.DesDmDbi(cls.sfile, 'db-test')
+
+    @classmethod
+    def tearDownClass(cls):
+        os.unlink(cls.sfile)
+        #MockConnection.destroy()
+
+    def test_query2dict_of_columns(self):
+        query = "select * from image"
+        res = gu.query2dict_of_columns(query, self.dbh)
+        self.assertTrue('FILENAME' in res.keys())
+        self.assertTrue('PV1_9' in res.keys())
+        self.assertEqual(7257, len(res['FILENAME']))
+        self.assertTrue(isinstance(res['FILENAME'], tuple))
+
+        res = gu.query2dict_of_columns(query, self.dbh, True)
+        self.assertTrue('FILENAME' in res.keys())
+        self.assertTrue('PV1_9' in res.keys())
+        self.assertEqual(7257, len(res['FILENAME']))
+        self.assertFalse(isinstance(res['FILENAME'], tuple))
+        self.assertTrue(res['FILENAME'].dtype == np.object)
+
+    def test_query2rec(self):
+        query = "select * from image"
+        res = gu.query2rec(query, self.dbh)
+        self.assertTrue(isinstance(res, np.recarray))
+        self.assertEqual(7257, len(res['FILENAME']))
+
+        query = "select * from exposure"
+        res = gu.query2rec(query, self.dbh)
+        self.assertFalse(res)
+
+        with capture_output() as (out, _):
+            res = gu.query2rec(query, self.dbh, True)
+            self.assertFalse(res)
+            output = out.getvalue().strip()
+            self.assertTrue("returned no results" in output)
+
+
 
 if __name__ == '__main__':
     unittest.main()
