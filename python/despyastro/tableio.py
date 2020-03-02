@@ -34,7 +34,7 @@ def put_header(file, text):
 
 def get_str(file, cols=0, nrows='all', sep=None):
     """
-        Reads strings from a file
+        Reads strings from a file. Columns must be continguous.
         Usage:
         x,y,z=get_str('myfile.cat',(0,1,2))
         x,y,z are returned as string lists
@@ -61,6 +61,7 @@ def get_str(file, cols=0, nrows='all', sep=None):
         nrows = len(buffer)
     counter = 0
     for lines in buffer:
+        lines = lines.rstrip()
         if counter >= nrows:
             break
         if sep:

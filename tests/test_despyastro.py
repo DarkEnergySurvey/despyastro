@@ -18,6 +18,7 @@ from astropy.io import fits
 
 from despyastro import coords as cds
 from despyastro import genutil as gu
+from despyastro import tableio as tio
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -489,7 +490,7 @@ port    =   0
     @classmethod
     def tearDownClass(cls):
         os.unlink(cls.sfile)
-        #MockConnection.destroy()
+        MockConnection.destroy()
 
     def test_query2dict_of_columns(self):
         query = "select * from image"
@@ -522,7 +523,52 @@ port    =   0
             output = out.getvalue().strip()
             self.assertTrue("returned no results" in output)
 
+class TestTableIO(unittest.TestCase):
+    def test_header(self):
+        open('test.dat', 'w')
+        tio.put_header('test.dat', "this is a header\n")
+        tio.put_header('test.dat', "# this is also a header")
 
+        open('test.dat', 'a').write("not a header\n# also not a header\n")
+        b = tio.get_header('test.dat')
 
+        self.assertTrue('this is a header' in b)
+        self.assertTrue('this is also a header' in b)
+        self.assertFalse('not a header' in b)
+        os.unlink('test.dat')
+
+    def test_str(self):
+        dfile = 'test.dat'
+
+        bad_data = (('a','b','c','d'),
+                    ('1', '2'))
+
+        self.assertRaises(Exception, tio.put_str, dfile, bad_data)
+
+        self.assertRaises(Exception, tio.put_str, dfile, [])
+
+        data = (('#header', 'name1', 'name2', '', 'name3', 'name4'),
+                ('item', '1', '2', '', '4', '9'),
+                ('', 'abc', 'ggh', '', 'hhy', 'hhfb'),
+                ('',' def|jkl', 'qwe|lkj', '', 'kpi|mnb', 'kel|bnm'))
+        tio.put_str(dfile, data)
+
+        res = tio.get_str(dfile, cols=[1,2,3])
+
+        self.assertEqual(4, len(res[0]))
+        self.assertEqual(res[1][0], 'abc')
+        self.assertEqual(res[0][1], '2')
+
+        res = tio.get_str(dfile, cols=[0,1], nrows=2, sep='|')
+        self.assertEqual(2, len(res[0]))
+        self.assertEqual(res[1][0], 'jkl')
+        self.assertEqual(res[0][1], 'name2 2 ggh qwe')
+
+        res = tio.get_str(dfile, cols=[1])
+
+        self.assertEqual(4, len(res))
+        self.assertEqual(res[0][0], '1')
+
+        os.unlink(dfile)
 if __name__ == '__main__':
     unittest.main()
