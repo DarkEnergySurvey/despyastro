@@ -155,8 +155,6 @@ def put_data(file, variables, header='', fmt='', append='no'):
     f.close()
 
 
-#Files containing strings
-
 # F. Menanteau, reads all or some columns
 
 def rcols(file, cols=None, nrows='all'):
@@ -182,6 +180,8 @@ def rcols(file, cols=None, nrows='all'):
     for j in range(nvar):
         data[j] = numpy.array(list(map(float, data[j])))
     return tuple(data)
+
+#Files containing strings
 
 def get_string(file, cols=None, nrows='all', buffer=None):
     """
@@ -289,7 +289,7 @@ def get_2Darray(file, cols='all', nrows='all', verbose='no'):
 
     lista = get_data(file, cols, nrows)
     nl = len(lista[0])
-    x = numpy.zeros((nl, nc), type='Float64') # Float64 to avoid warning msgs.
+    x = numpy.zeros((nl, nc), dtype='Float64') # Float64 to avoid warning msgs.
     for i in range(nc):
         x[:, i] = lista[i]
 
