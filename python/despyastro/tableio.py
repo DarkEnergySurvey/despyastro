@@ -150,7 +150,7 @@ def put_data(file, variables, header='', fmt='', append='no'):
         cosas = []
         for j in variables:
             cosas.append(j[i])
-        line = fmt.format(tuple(cosas))
+        line = fmt.format(*cosas)
         f.write(line + '\n')
     f.close()
 
