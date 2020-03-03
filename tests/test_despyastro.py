@@ -524,51 +524,96 @@ port    =   0
             self.assertTrue("returned no results" in output)
 
 class TestTableIO(unittest.TestCase):
-    def test_header(self):
-        open('test.dat', 'w')
-        tio.put_header('test.dat', "this is a header\n")
-        tio.put_header('test.dat', "# this is also a header")
+    @classmethod
+    def setUpClass(cls):
+        cls.dfile = 'test.dat'
+        cls.data = (('#header', 'name1', 'name2', '', 'name3', 'name4'),
+                    ('item', '1', '2', '', '4', '9'),
+                    ('', 'abc', 'ggh', '', 'hhy', 'hhfb'),
+                    ('',' def|jkl', 'qwe|lkj', '', 'kpi|mnb', 'kel|bnm'))
 
-        open('test.dat', 'a').write("not a header\n# also not a header\n")
-        b = tio.get_header('test.dat')
+        open(cls.dfile, 'w')
+
+    @classmethod
+    def tearDownClass(cls):
+        #pass
+        os.unlink(cls.dfile)
+
+    def test_header(self):
+        tio.put_header(self.dfile, "this is a header\n")
+        tio.put_header(self.dfile, "# this is also a header")
+        tio.put_header(self.dfile, '')
+        open(self.dfile, 'a').write("not a header\n# also not a header\n")
+        b = tio.get_header(self.dfile)
 
         self.assertTrue('this is a header' in b)
         self.assertTrue('this is also a header' in b)
         self.assertFalse('not a header' in b)
-        os.unlink('test.dat')
+        #os.unlink('test.dat')
 
     def test_str(self):
-        dfile = 'test.dat'
+        bfile = 'bad.dat'
 
         bad_data = (('a','b','c','d'),
                     ('1', '2'))
 
-        self.assertRaises(Exception, tio.put_str, dfile, bad_data)
+        self.assertRaises(Exception, tio.put_str, bfile, bad_data)
 
-        self.assertRaises(Exception, tio.put_str, dfile, [])
+        self.assertRaises(Exception, tio.put_str, bfile, [])
+        try:
+            os.unlink(bfile)
+        except:
+            pass
+        tio.put_str(self.dfile, self.data)
 
-        data = (('#header', 'name1', 'name2', '', 'name3', 'name4'),
-                ('item', '1', '2', '', '4', '9'),
-                ('', 'abc', 'ggh', '', 'hhy', 'hhfb'),
-                ('',' def|jkl', 'qwe|lkj', '', 'kpi|mnb', 'kel|bnm'))
-        tio.put_str(dfile, data)
-
-        res = tio.get_str(dfile, cols=[1,2,3])
+        res = tio.get_str(self.dfile, cols=[1,2,3])
 
         self.assertEqual(4, len(res[0]))
         self.assertEqual(res[1][0], 'abc')
         self.assertEqual(res[0][1], '2')
 
-        res = tio.get_str(dfile, cols=[0,1], nrows=2, sep='|')
+        res = tio.get_str(self.dfile, cols=[0,1], nrows=2, sep='|')
         self.assertEqual(2, len(res[0]))
         self.assertEqual(res[1][0], 'jkl')
         self.assertEqual(res[0][1], 'name2 2 ggh qwe')
 
-        res = tio.get_str(dfile, cols=[1])
+        res = tio.get_str(self.dfile, cols=1)
 
         self.assertEqual(4, len(res))
         self.assertEqual(res[0][0], '1')
+        #os.unlink(dfile)
 
-        os.unlink(dfile)
+    def test_str_as_list(self):
+        #dfile = 'test.dat'
+        tio.put_str(self.dfile, self.data)
+
+        lines = open(self.dfile, 'r').readlines()
+
+        res = tio.get_str(lines, cols=1)
+        self.assertEqual(4, len(res))
+        self.assertEqual(res[0][0], '1')
+
+
+    def test_data(self):
+        self.assertRaises(Exception, tio.put_data, self.dfile, [])
+        data = ((18.156, 22.556, 29.4, 186.25, -0.0000003365),
+                (1, 2, 0, 4, 9),
+                (3.556, 4.98776, 6.23765, 2.15, 16.7))
+        tio.put_data(self.dfile, data, "Here is a header")
+        res = tio.get_data(self.dfile)
+
+        self.assertAlmostEqual(data[0][0], res[0], 3)
+        self.assertAlmostEqual(data[0][4], res[4], 3)
+
+        res = tio.get_data(self.dfile, cols=[1,2])
+        self.assertEqual(data[1][0], res[0][0])
+        self.assertAlmostEqual(data[2][2], res[1][2], 5)
+
+        self.assertRaises(IndexError, tio.get_data, self.dfile, cols=[2,3,4])
+        new_data = ((-10, -20), (-30, -40), (-50, -60))
+        tio.put_data(self.dfile, new_data, header="# More header\n", fmt='{:.2f}  ' * len(new_data), append='yes')
+
+        res = tio.get_data(self.dfile, cols=[1,2])
+        self.assertAlmostEqual(new_data[2][1], res[1][6], 3)
 if __name__ == '__main__':
     unittest.main()
