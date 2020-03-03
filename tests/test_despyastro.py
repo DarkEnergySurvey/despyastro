@@ -532,7 +532,9 @@ class TestTableIO(unittest.TestCase):
                     ('', 'abc', 'ggh', '', 'hhy', 'hhfb'),
                     ('',' def|jkl', 'qwe|lkj', '', 'kpi|mnb', 'kel|bnm'))
 
-        open(cls.dfile, 'w')
+    @classmethod
+    def setUp(cls):
+        open(cls.dfile, 'w').write('')
 
     @classmethod
     def tearDownClass(cls):
@@ -540,6 +542,9 @@ class TestTableIO(unittest.TestCase):
         os.unlink(cls.dfile)
 
     def test_header(self):
+        b = tio.get_header(self.dfile)
+        self.assertFalse(b)
+
         tio.put_header(self.dfile, "this is a header\n")
         tio.put_header(self.dfile, "# this is also a header")
         tio.put_header(self.dfile, '')
@@ -610,10 +615,100 @@ class TestTableIO(unittest.TestCase):
         self.assertAlmostEqual(data[2][2], res[1][2], 5)
 
         self.assertRaises(IndexError, tio.get_data, self.dfile, cols=[2,3,4])
+
+        tio.put_data(self.dfile, data)
+
         new_data = ((-10, -20), (-30, -40), (-50, -60))
         tio.put_data(self.dfile, new_data, header="# More header\n", fmt='{:.2f}  ' * len(new_data), append='yes')
 
         res = tio.get_data(self.dfile, cols=[1,2])
         self.assertAlmostEqual(new_data[2][1], res[1][6], 3)
+
+    def test_get_string(self):
+        open(self.dfile, 'w').write("""# hello
+one  two  three
+four  five six
+
+seven eight nine
+""")
+        res = tio.get_string(self.dfile)
+        self.assertEqual(len(res), 3)
+        self.assertEqual(res[1][1], 'five')
+
+        res = tio.get_string(self.dfile, cols=[1,2], nrows=2)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res[0]), 2)
+        self.assertEqual(res[1][1], 'six')
+
+        res = tio.get_string(self.dfile, cols=2, nrows=2)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[1], 'six')
+
+        buf = open(self.dfile, 'r').readlines()
+
+        res = tio.get_string(buf, cols=[1,2], nrows=2, buffer=True)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res[0]), 2)
+        self.assertEqual(res[1][1], 'six')
+
+    def test_rcols(self):
+        open(self.dfile, 'w').write("""# hello
+1  2  3
+4 5 6
+
+7 8 9
+""")
+        res = tio.rcols(self.dfile)
+        self.assertEqual(len(res), 3)
+        self.assertEqual(res[1][1], 5)
+
+        res = tio.rcols(self.dfile, cols=[1,2], nrows=2)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res[0]), 2)
+        self.assertEqual(res[1][1], 6)
+
+        res = tio.rcols(self.dfile, cols=2, nrows=2)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[1], 6)
+
+    def test_get_datarray(self):
+        open(self.dfile, 'w').write("""# hello
+1  2  3
+4 5 6
+
+7 8 9
+""")
+        res = tio.get_datarray(self.dfile)
+        self.assertEqual(len(res), 3)
+        self.assertEqual(res[1], 4)
+
+        res = tio.get_datarray(self.dfile, cols=[1,2], nrows=2)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res[0]), 2)
+        self.assertEqual(res[1][1], 6)
+
+        res = tio.get_datarray(self.dfile, cols=2, nrows=2)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[1], 6)
+
+        buf = open(self.dfile, 'r').readlines()
+
+        res = tio.get_datarray(buf, cols=[1,2], nrows=2, buffer=True)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res[0]), 2)
+        self.assertEqual(res[1][1], 6)
+
+    def test_2Darray(self):
+        data = np.array([[1,3,5],[7,9,11]])
+        tio.put_2Darray(self.dfile, data, header="#Hello\n")
+
+        res = tio.get_2Darray(self.dfile)
+        self.assertEqual(res.shape, (2,3))
+        self.assertEqual(res[0][2], 5.)
+
+        tio.put_2Darray(self.dfile, np.array([[10,20,30]]), append='yes')
+        res = tio.get_2Darray(self.dfile, cols=[1,2], nrows=3, verbose='yes')
+        self.assertEqual(res.shape, (3,2))
+
 if __name__ == '__main__':
     unittest.main()
