@@ -1042,7 +1042,7 @@ def arrscl(arr, minval, maxval, arrmin=None, arrmax=None):
     try:
         a = (maxval - minval) / (arrmax - arrmin)
         b = (arrmax*minval - arrmin*maxval) / (arrmax - arrmin)
-    except:
+    except:  # pragma: no cover
         sys.stdout.write(f"Error calculating a,b: {sys.exc_info()[0]} {sys.exc_info()[1]}\n")
         return None
 
