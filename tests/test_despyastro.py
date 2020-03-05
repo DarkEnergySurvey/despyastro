@@ -825,6 +825,62 @@ class TestWCSUtil(unittest.TestCase):
         self.assertTrue(dx.max() < 0.00001)
         self.assertTrue(dy.max() < 0.00001)
 
+    def test_pack_coeffs(self):
+        u = np.random.random_sample((10,)) * 10.
+        v = np.random.random_sample((10,)) * 10.
+
+        x = np.random.random_sample((10,))
+        y = np.random.random_sample((10,))
+        am = wcs.make_amatrix(u, v, 2)
+
+        xc, yc = wcs.invert_for_coeffs(am, x, y)
+
+        xpc, ypc = wcs.pack_coeffs(xc, yc, 1)
+
+        self.assertEqual(xpc.shape, (2,2))
+        self.assertEqual(ypc.shape, (2,2))
+        self.assertNotEqual(xpc[0][0], 0.)
+        self.assertNotEqual(ypc[0][0], 0.)
+
+        xpc, ypc = wcs.pack_coeffs(xc, yc, 1, False)
+
+        self.assertEqual(xpc.shape, (2,2))
+        self.assertEqual(ypc.shape, (2,2))
+        self.assertEqual(xpc[0][0], 0.)
+        self.assertEqual(ypc[0][0], 0.)
+
+    def test_invert2dpolynomial(self):
+        u = np.random.random_sample((10,)) * 10.
+        v = np.random.random_sample((10,)) * 10.
+
+        x = np.random.random_sample((10,))
+        y = np.random.random_sample((10,))
+
+        xc, yc = wcs.Invert2DPolynomial(u, v, x, y, 1)
+
+        self.assertEqual(xc.shape, (2,2))
+        self.assertEqual(yc.shape, (2,2))
+
+        self.assertEqual(xc[1][1], 0.)
+
+        xc, yc = wcs.Invert2DPolynomial(u, v, x, y, 2)
+
+        self.assertEqual(xc.shape, (3,3))
+        self.assertEqual(yc.shape, (3,3))
+
+        self.assertEqual(xc[2][2], 0.)
+
+        xc, yc = wcs.Invert2DPolynomial(u, v, x, y, 2, False, False)
+
+        self.assertEqual(xc.shape, (5,))
+        self.assertEqual(yc.shape, (5,))
+
+    def test_ncoeff(self):
+        self.assertEqual(wcs.Ncoeff(5), 21.0)
+
+        self.assertEqual(wcs.Ncoeff(3), 10.)
+
+        self.assertEqual(wcs.Ncoeff(3, False), 9.)
 
 
 if __name__ == '__main__':
