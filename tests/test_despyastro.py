@@ -19,6 +19,8 @@ from astropy.io import fits
 from despyastro import coords as cds
 from despyastro import genutil as gu
 from despyastro import tableio as tio
+from despyastro import wcsutil as wcs
+import despyastro
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -709,6 +711,121 @@ seven eight nine
         tio.put_2Darray(self.dfile, np.array([[10,20,30]]), append='yes')
         res = tio.get_2Darray(self.dfile, cols=[1,2], nrows=3, verbose='yes')
         self.assertEqual(res.shape, (3,2))
+
+class TestWCSUtil(unittest.TestCase):
+    def test_arrscl(self):
+        arr = np.array(range(100), dtype='float64')
+
+        self.assertTrue(arr.min() < 10.)
+        self.assertTrue(arr.max() > 20.)
+
+        res = wcs.arrscl(arr, 10, 20)
+        self.assertEqual(res.shape, (100,))
+        self.assertFalse(res.min() < 10.)
+        self.assertFalse(res.max() > 20.)
+
+    def test_arrscl_alt(self):
+        arr = np.array(range(1), dtype='float64')
+
+        res = wcs.arrscl(arr, 10, 20, -10, 25)
+
+        self.assertEqual(arr.shape, res.shape)
+        self.assertEqual(arr[0], res[0])
+
+    def test_arrscl_error(self):
+        arr = np.array(range(25), dtype='float64')
+
+        with capture_output() as (out, _):
+            self.assertIsNone(wcs.arrscl(arr, 15, 99, 0, 0))
+            output = out.getvalue().strip()
+            self.assertTrue('arrmin must not' in output)
+
+    def test_dict_get(self):
+        d = {'key': 'value',
+             'another': 'val'}
+
+        self.assertEqual(wcs._dict_get(d, 'key'), d['key'])
+
+        self.assertRaises(ValueError, wcs._dict_get, d, 'blah')
+
+        self.assertEqual(wcs._dict_get(d, 'blah', 55), 55)
+
+    def test_apply2dpolynomial(self):
+        a = np.array([[0,1,2,3],[4,5,6,7],[8,9,10,11]], dtype='float64')
+        x = np.array([2,4,6,8], dtype='float64')
+        y = np.array([3,6,9, 11], dtype='float64')
+
+        v = wcs.Apply2DPolynomial(a, x, y)
+
+        self.assertEqual(v.shape, (4,))
+        self.assertEqual(v[1], 52542.)
+
+    def test_make_xy_grid(self):
+        numpts = 22
+        x, y = wcs.make_xy_grid(numpts, [0, 10], [-5, 0])
+
+        self.assertEqual(x.shape[0], numpts * numpts)
+        self.assertEqual(y.shape[0], numpts * numpts)
+
+        self.assertTrue(x.min() == 0)
+        self.assertTrue(x.max() == 10.)
+        self.assertTrue(y.min() == -5.)
+        self.assertTrue(y.max() == 0)
+
+        self.assertTrue(x[0] == 0.)
+        self.assertTrue(x[-1] == 10.)
+        self.assertTrue(y[0] == -5.)
+        self.assertTrue(y[-1] == 0.)
+
+        self.assertEqual(np.unique(x).shape[0], numpts)
+        self.assertEqual(np.unique(y).shape[0], numpts)
+
+    def test_make_amtrix(self):
+        u = np.array(range(10))
+        v = np.array(range(10))
+
+        res = wcs.make_amatrix(u, v, 2)
+
+        self.assertEqual(res.shape, (6,10))
+        self.assertTrue(res.min() == 0.)
+        self.assertTrue(res.max() == 81.)
+
+        self.assertEqual(res[0][0], 1.)
+
+        res = wcs.make_amatrix(u, v, 2, False)
+
+        self.assertEqual(res.shape, (5,10))
+        self.assertTrue(res.min() == 0.)
+        self.assertTrue(res.max() == 81.)
+
+        self.assertEqual(res[0][0], 0.)
+
+        res = wcs.make_amatrix(u, v, 3)
+        self.assertEqual(res.shape, (10,10))
+        self.assertTrue(res.min() == 0.)
+        self.assertTrue(res.max() == 729.)
+
+    def test_invert_for_coeffs(self):
+        u = np.random.random_sample((10,)) * 10.
+        v = np.random.random_sample((10,)) * 10.
+
+        x = np.random.random_sample((10,))
+        y = np.random.random_sample((10,))
+        am = wcs.make_amatrix(u, v, 2)
+
+        xc, yc = wcs.invert_for_coeffs(am, x, y)
+
+        self.assertTrue(xc.shape == yc.shape)
+
+        xc1, yc1 = wcs.invert_for_coeffs(am, x, y, False)
+
+        dx = abs(xc - xc1)
+        dy = abs(yc - yc1)
+
+        self.assertTrue(dx.max() < 0.00001)
+        self.assertTrue(dy.max() < 0.00001)
+
+
 
 if __name__ == '__main__':
     unittest.main()
