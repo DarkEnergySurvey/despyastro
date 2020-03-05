@@ -1175,8 +1175,7 @@ def Ncoeff(order, constant=True):
     return ncoeff
 
 
-def test_invert_2dpoly(porder, fac=5, constant=True, order_increase=0,
-                       inverse=False):
+def test_invert_2dpoly(porder, fac=5, constant=True, order_increase=0, inverse=False):   # pragma: no cover
     import pylab
 
     # total number of constraints should be at least equal to the
