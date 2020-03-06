@@ -20,7 +20,7 @@ from despyastro import coords as cds
 from despyastro import genutil as gu
 from despyastro import tableio as tio
 from despyastro import wcsutil as wcs
-import despyastro
+from despyastro import astrometry as ast
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -947,8 +947,6 @@ class TestWCSUtil(unittest.TestCase):
         xxc, yyc = wc.ApplyCDMatrix(x, y, True)
         self.assertEqual(xc.shape, (2,2))
         self.assertEqual(yc.shape, (2,2))
-        self.assertTrue(yyc.min() > 0.)
-        self.assertTrue(xxc.max() < 0.)
 
     def test_image2sph_and_back(self):
         x = np.random.random_sample((10,)) * 100.
@@ -1050,6 +1048,43 @@ class TestWCSUtil(unittest.TestCase):
 
         wc.SetAngles(0, 90, 85)
 
+class TestAstrometry(unittest.TestCase):
+    def test_circle_distance(self):
+        self.assertEqual(ast.circle_distance(0, 0, 90, 0), 90.)
+        self.assertAlmostEqual(5.0, ast.circle_distance(85, 0, 90, 0), 9)
+        self.assertAlmostEqual(1.20139065, ast.circle_distance(22.5, -15, 22.56, -16.2), 8)
+        self.assertAlmostEqual(0.51350694, ast.circle_distance(1.15, -.02, 1.65, 0.1, 'rad'), 8)
+
+    def test_deg2dec_and_back(self):
+        self.assertAlmostEqual(5.42083333, ast.deg2dec('05:25:15'))
+        self.assertAlmostEqual(-5.42083333, ast.deg2dec('-05:25:15'))
+
+        self.assertEqual(abs(ast.deg2dec('00:00:01.11')), abs(ast.deg2dec('-00:00:1.11')))
+
+        self.assertAlmostEqual(5.42083333, ast.deg2dec(np.array(['05:25:15']))[0])
+        self.assertAlmostEqual(-5.42083333, ast.deg2dec(np.array(['-05:25:15']))[0])
+
+        val = '05:25:15'
+        d = ast.deg2dec(val)
+        dd = ast.dec2deg(d)
+
+        self.assertEqual(val, dd[:len(val)])
+
+        dd = ast.dec2deg(d, plussign=True)
+        self.assertTrue(dd.startswith('+'))
+        self.assertEqual(val, dd[1:len(val) + 1])
+
+        dd = ast.dec2deg(d, short=True)
+        self.assertEqual(val[:5], dd)
+
+        dd = ast.dec2deg(d, short='ra')
+        self.assertEqual(val[:6] + '02.5', dd)
+
+        val = '-05:25:15'
+        d = ast.deg2dec(val)
+        dd = ast.dec2deg(d)
+
+        self.assertEqual(val, dd[:len(val)])
 
 if __name__ == '__main__':
     unittest.main()
