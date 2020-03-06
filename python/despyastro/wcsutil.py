@@ -307,7 +307,7 @@ class WCS:
                     u, v = self.Distort(u, v, inverse=True)
                 xdiff, ydiff = self.ApplyCDMatrix(u, v, inverse=True)
 
-            elif p == '-TAN-SIP':
+            elif p == '-TAN-SIP':      # pragma: no cover
                 u, v = self.ApplyCDMatrix(u, v, inverse=True)
                 if distort and self.distort['name'] != 'none':
                     xdiff, ydiff = self.Distort(u, v, inverse=True)
@@ -477,11 +477,11 @@ class WCS:
         b2 = r[0, 2] * l + r[1, 2] * m + r[2, 2] * n
 
         # Account for possible roundoff
-        w, = numpy.where(b2 > 1.0)
-        if w.size > 0:
+        w, = numpy.where(b2 > 1.0)      # pragma: no cover
+        if w.size > 0:      # pragma: no cover
             b2[w] = 1.0
-        w, = numpy.where(b2 < -1.0)
-        if w.size > 0:
+        w, = numpy.where(b2 < -1.0)      # pragma: no cover
+        if w.size > 0:      # pragma: no cover
             b2[w] = -1.0
 
         lat_new = numpy.arcsin(b2) * r2d
@@ -562,7 +562,7 @@ class WCS:
         elif self.distort['name'] == 'sip':
             xp = x.copy()
             yp = y.copy()
-        else:
+        else:      # pragma: no cover
             raise ValueError(f"Unsupported distortion model '{self.distort['name']}'")
 
         xp += Apply2DPolynomial(a, x, y)
@@ -575,13 +575,13 @@ class WCS:
         # Get rms differences
         t = (xback - x) ** 2 + (yback - y) ** 2
         rms = numpy.sqrt(t.sum() / t.size)
-        if verbose:
+        if verbose:      # pragma: no cover
             mess = 'rms error'
             if units != '':
                 mess += '('+units+')'
             mess += ':'
             sys.stdout.write(f'{mess} {rms}\n')
-        if doplot:
+        if doplot:      # pragma: no cover
             import pylab
             pylab.clf()
             pylab.hist(x-xback, 50, edgecolor='black', fill=False)
@@ -596,7 +596,7 @@ class WCS:
                                            order_increase=order_increase,
                                            verbose=verbose,
                                            doplot=doplot)
-        if self.distort['name'] == 'sip':
+        if self.distort['name'] == 'sip':      # pragma: no cover
             return self.InvertSipDistortion(fac=fac,
                                             order_increase=order_increase,
                                             verbose=verbose,
@@ -647,7 +647,7 @@ class WCS:
         newv = Apply2DPolynomial(binv, up, vp)
         ufrac = (u - newu) / u
         vfrac = (v - newv) / v
-        if verbose:
+        if verbose:      # pragma: no cover
             sys.stdout.write('\ntesting inverse now:\n')
             sys.stdout.write(f'\n  ufrac={ufrac}\n')
             sys.stdout.write(f'  vfrac={vfrac}\n')
@@ -668,7 +668,7 @@ class WCS:
 
 
 
-    def InvertSipDistortion(self, fac=5, verbose=False, doplot=False, order_increase=1):
+    def InvertSipDistortion(self, fac=5, verbose=False, doplot=False, order_increase=1):      # pragma: no cover
         """
         Invert the distortion model.  Must contain a,b matrices
         """
