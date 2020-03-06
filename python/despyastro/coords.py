@@ -817,8 +817,11 @@ def dec_parse(decstring):
 
     ds = decstring.split(':')
     lds = len(ds)
+    mult = 1.0
+    if decstring.startswith('-'):
+        mult = -1.
     if lds >= 1:
-        deg = float(ds[0])
+        deg = abs(float(ds[0]))
         dec += deg
     if lds >= 2:
         minutes = float(ds[1])
@@ -826,7 +829,7 @@ def dec_parse(decstring):
     if lds >= 3:
         sec = float(ds[2])
         dec += sec / 3600.0
-    return dec
+    return mult * dec
 
 def ra_parse(rastring, hours=True):
     """
