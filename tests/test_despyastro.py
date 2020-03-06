@@ -25,6 +25,7 @@ import despyastro
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
 
+ROOT = '/var/lib/jenkins/test_data/'
 
 @contextmanager
 def capture_output():
@@ -713,6 +714,7 @@ seven eight nine
         self.assertEqual(res.shape, (3,2))
 
 class TestWCSUtil(unittest.TestCase):
+    imgfile = os.path.join(ROOT, 'raw', 'test_raw.fits.fz')
     def test_arrscl(self):
         arr = np.array(range(100), dtype='float64')
 
@@ -882,6 +884,92 @@ class TestWCSUtil(unittest.TestCase):
 
         self.assertEqual(wcs.Ncoeff(3, False), 9.)
 
+
+    def test_wcs_init(self):
+        w = wcs.WCS(fits.open(self.imgfile)[1].header)
+
+    def test_wcs_keys(self):
+        wc = wcs.WCS(fits.open(self.imgfile)[1].header)
+        self.assertEqual(102, len(wc.keys()))
+
+
+    def test_image2sky_and_back(self):
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        xl = np.random.randint(3000, size=25)
+        yl = np.random.randint(3000, size=25)
+
+        for x, y in zip(xl, yl):
+            lat, long = wc.image2sky(x, y)
+            xn, yn = wc.sky2image(lat, long)
+
+            self.assertAlmostEqual(x, xn, 6)
+            self.assertAlmostEqual(y, yn, 6)
+
+        lat, long = wc.image2sky(xl, yl, False)
+        xn, yn = wc.sky2image(lat, long, False, False)
+
+
+        self.assertTrue(np.allclose(xl, xn))
+        self.assertTrue(np.allclose(yl, yn))
+
+        lat, long = wc.image2sky(xl, yl)
+        xn, yn = wc.sky2image(lat, long, True, False)
+
+        self.assertTrue(np.allclose(xl, xn))
+        self.assertTrue(np.allclose(yl, yn))
+
+    def test_extractprojection(self):
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+        res = wc.ExtractProjection(wc)
+        self.assertTrue('-TPV' in res)
+
+        wc['ctype1'] = 'RA--AABB'
+        self.assertRaises(ValueError, wc.ExtractProjection, wc)
+
+    def test_applycdmatrix(self):
+        x = np.random.random_sample((2,2)) * 10.
+        y = np.random.random_sample((2,2)) * 10.
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        xc, yc = wc.ApplyCDMatrix(x, y)
+        self.assertEqual(xc.shape, (2,2))
+        self.assertEqual(yc.shape, (2,2))
+        self.assertTrue(xc.min() > 0.)
+        self.assertTrue(yc.max() < 0.)
+
+        xxc, yyc = wc.ApplyCDMatrix(x, y, True)
+        self.assertEqual(xc.shape, (2,2))
+        self.assertEqual(yc.shape, (2,2))
+        self.assertTrue(yyc.min() > 0.)
+        self.assertTrue(xxc.max() < 0.)
+
+    def test_image2sph_and_back(self):
+        x = np.random.random_sample((10,)) * 100.
+        y = np.random.random_sample((10,)) * 100.
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        lat, long = wc.image2sph(x, y)
+
+        self.assertEqual(lat.shape, x.shape)
+        self.assertEqual(long.shape, y.shape)
+        self.assertTrue(0.0 <= lat.max() < 360.)
+        self.assertTrue(-90.0 <= long.max() <= 90.0)
+        self.assertTrue(0.0 <= lat.min() < 360.)
+        self.assertTrue(-90.0 <= long.min() <= 90.0)
+
+        xc, yc = wc.sph2image(lat, long)
+
+        self.assertTrue(np.allclose(xc, x))
+        self.assertTrue(np.allclose(yc, y))
 
 if __name__ == '__main__':
     unittest.main()
