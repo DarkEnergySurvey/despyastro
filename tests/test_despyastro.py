@@ -971,5 +971,36 @@ class TestWCSUtil(unittest.TestCase):
         self.assertTrue(np.allclose(xc, x))
         self.assertTrue(np.allclose(yc, y))
 
+
+        x = np.random.random_sample((10,)) * -100.
+        y = np.random.random_sample((10,)) * -100.
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        lat, long = wc.image2sph(x, y)
+
+        self.assertEqual(lat.shape, x.shape)
+        self.assertEqual(long.shape, y.shape)
+        self.assertTrue(0.0 <= lat.max() < 360.)
+        self.assertTrue(-90.0 <= long.max() <= 90.0)
+        self.assertTrue(0.0 <= lat.min() < 360.)
+        self.assertTrue(-90.0 <= long.min() <= 90.0)
+
+        xc, yc = wc.sph2image(lat, long)
+
+        self.assertTrue(np.allclose(xc, x))
+        self.assertTrue(np.allclose(yc, y))
+
+        x = np.random.random_sample((9,)) * -100.
+        y = np.random.random_sample((10,)) * -100.
+
+        self.assertRaises(ValueError, wc.image2sph, x, y)
+
+        lat = lat[4:]
+
+        self.assertRaises(ValueError, wc.sph2image, lat, long)
+
+
 if __name__ == '__main__':
     unittest.main()
