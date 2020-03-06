@@ -1001,6 +1001,55 @@ class TestWCSUtil(unittest.TestCase):
 
         self.assertRaises(ValueError, wc.sph2image, lat, long)
 
+    def test_getpole(self):
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        a, b = wc.GetPole()
+
+        self.assertAlmostEqual(6.0323610558, a, 8)
+        self.assertAlmostEqual(-0.902896119, b, 8)
+
+        wc.theta0 = 85.
+
+        a, b = wc.GetPole()
+
+        self.assertAlmostEqual(4.4615647290, a, 8)
+        self.assertAlmostEqual(-0.815629657, b, 8)
+
+        wc.theta0 = -85.
+
+        a, b = wc.GetPole()
+
+        self.assertAlmostEqual(7.603157382, a, 8)
+        self.assertAlmostEqual(0.815629657, b, 8)
+
+        wc.theta0 = 128.3
+
+        self.assertRaises(ValueError, wc.GetPole)
+
+        wc.theta0 = 333.5
+
+        a, b = wc.GetPole()
+
+        self.assertAlmostEqual(7.60315738265, a, 8)
+        self.assertAlmostEqual(-0.2053879552, b, 8)
+
+        wc.theta0 = 0.
+
+        a, b = wc.GetPole()
+
+        self.assertAlmostEqual(6.032361055, a, 8)
+        self.assertAlmostEqual(0.667900207, b, 8)
+
+    def test_setangles(self):
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        wc.SetAngles(0, 90, 85)
+
 
 if __name__ == '__main__':
     unittest.main()
