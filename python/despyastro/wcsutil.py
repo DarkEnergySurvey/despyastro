@@ -250,11 +250,12 @@ class WCS:
                 # Assuming PV distortions
                 u, v = self.Distort(u, v)
 
-        elif p == '-TAN-SIP':
+        elif p == '-TAN-SIP':      # pragma: no cover
+            # this is broken as u and v are only defined if there is a distortion
             if distort and self.distort['name'] != 'none':
                 u, v = self.Distort(xdiff, ydiff)
             u, v = self.ApplyCDMatrix(u, v)
-        else:
+        else:                    # pragma: no cover
             raise ValueError(f"projection '{p}' not supported")
 
         longitude, latitude = self.image2sph(u, v)
@@ -313,7 +314,7 @@ class WCS:
                 else:
                     xdiff, ydiff = u, v
 
-            else:
+            else:            # pragma: no cover
                 raise ValueError(f"projection '{p}' not supported")
 
             x = xdiff + self.crpix[0]
