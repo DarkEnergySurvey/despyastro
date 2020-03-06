@@ -53,7 +53,7 @@ def deg2dec(deg, sep=":"):
     """
     Degrees to decimal, one element or list/array object.
     """
-    if hasattr(deg, '__iter__'):
+    if isinstance(deg, (list, numpy.ndarray, numpy.recarray)):
         return [deg2dec_one(d, sep=sep) for d in deg]
 
     return deg2dec_one(deg, sep=sep)
@@ -79,7 +79,7 @@ def dec2deg(dec, sep=":", plussign=False, short=False, sectol=1e-3):
     """
 
     # Make it a numpy object if iterable
-    if hasattr(dec, '__iter__'):
+    if isinstance(dec, (list, numpy.ndarray, numpy.recarray)):
         dec = numpy.asarray(dec)
         # Keep the sign for later
         sig = numpy.where(dec < 0, -1, +1)
@@ -127,14 +127,14 @@ def format_deg(x, short=False, sep=":", plussign=False):
     f3 = sep + "{:04.1f}"
 
     if short == 'ra':
-        fmt = sig + f1 + sep + f2 + "{:.1d}"
-        return fmt.format(abs(dd), mm, int(ss / 6))
+        fmt = sig + f1 + f2 + sep + "{:04.1f}"
+        return fmt.format(abs(dd), mm, float(ss / 6))
 
-    if short:
-        fmt = sig+f1+sep+f2
+    elif short:
+        fmt = sig + f1 + f2
         return fmt.format(abs(dd), mm)
 
-    fmt = sig + f1 + sep + f2 + sep + f3
+    fmt = sig + f1 + f2 + f3
     return fmt.format(abs(dd), mm, ss)
 
 def sky_area(ra, dec, units='degrees'):
