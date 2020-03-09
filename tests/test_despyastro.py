@@ -1049,6 +1049,8 @@ class TestWCSUtil(unittest.TestCase):
         wc.SetAngles(0, 90, 85)
 
 class TestAstrometry(unittest.TestCase):
+    imgfile = os.path.join(ROOT, 'raw', 'test_raw.fits.fz')
+
     def test_circle_distance(self):
         self.assertEqual(ast.circle_distance(0, 0, 90, 0), 90.)
         self.assertAlmostEqual(5.0, ast.circle_distance(85, 0, 90, 0), 9)
@@ -1085,6 +1087,53 @@ class TestAstrometry(unittest.TestCase):
         dd = ast.dec2deg(d)
 
         self.assertEqual(val, dd[:len(val)])
+
+    def test_sky_area(self):
+        ra = np.array([0, 0, 10, 10])
+        dec = np.array([0, 10, 10, 0])
+
+        res = ast.sky_area(ra, dec)
+        self.assertTrue(res < 100.)
+        self.assertTrue(100. - res < 0.3)
+
+        dec = np.array([0, -10, -10, 0])
+        res2 = ast.sky_area(ra, dec)
+        self.assertAlmostEqual(res, res2, 9)
+
+        ra = np.array([90, 90, 80, 80])
+        res2 = ast.sky_area(ra, dec)
+        self.assertAlmostEqual(res, res2, 9)
+
+        ra = np.array([0, 0, 10, 10])
+        dec = np.array([70, 80, 80, 70])
+
+        res = ast.sky_area(ra, dec)
+        self.assertTrue(res < 26.)
+        self.assertTrue(26. - res < 0.3)
+
+        res = ast.sky_area(ra, dec, units='rad')
+        self.assertAlmostEqual(res, 0.007838561, 7)
+
+    def test_get_pixelscale(self):
+        header = fits.open(self.imgfile)[1].header
+        r1 = ast.get_pixelscale(header, units='arcsec')
+        r2 = ast.get_pixelscale(header, units='arcmin')
+        r3 = ast.get_pixelscale(header, units='degree')
+
+        self.assertRaises(ValueError, ast.get_pixelscale, header, units='rad')
+
+        self.assertTrue(r1 > r2 > r3)
+
+        self.assertAlmostEqual(r1 / 60., r2, 8)
+
+        self.assertAlmostEqual(r2 / 60., r3, 8)
+
+    def test_update_wcs_matrix(self):
+        header = fits.open(self.imgfile)[1].header
+
+        h2 = ast.update_wcs_matrix(header, 100, 100, 2160, 4146)
+
+        self.assertAlmostEqual(h2['crval1'], 343.902416, 5)
 
 if __name__ == '__main__':
     unittest.main()
