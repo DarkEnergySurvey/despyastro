@@ -1088,6 +1088,14 @@ class TestAstrometry(unittest.TestCase):
 
         self.assertEqual(val, dd[:len(val)])
 
+        val = ['-05:25:15', '18:22:53.0']
+        d = ast.deg2dec(val)
+
+        dd = ast.dec2deg(d)
+
+        self.assertEqual(dd[0][:len(val[0])], val[0])
+        self.assertEqual(dd[1][:len(val[1])], val[1])
+
     def test_sky_area(self):
         ra = np.array([0, 0, 10, 10])
         dec = np.array([0, 10, 10, 0])
