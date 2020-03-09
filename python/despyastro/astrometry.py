@@ -83,6 +83,7 @@ def dec2deg(dec, sep=":", plussign=False, short=False, sectol=1e-3):
         dec = numpy.asarray(dec)
         # Keep the sign for later
         sig = numpy.where(dec < 0, -1, +1)
+        dec = abs(dec)
         dd = abs(dec.astype("Int32"))
         mm = (abs(dec - dd) * 60).astype("Int32")
         ss = (abs(dec - dd) * 60 - mm) * 60
@@ -112,7 +113,8 @@ def dec2deg(dec, sep=":", plussign=False, short=False, sectol=1e-3):
 
 def format_deg(x, short=False, sep=":", plussign=False):
     sign, dd, mm, ss = x
-
+    dd = int(dd)   # make sure these are ints
+    mm = int(mm)
     if sign < 0:
         sig = "-"
     else:
@@ -133,7 +135,8 @@ def format_deg(x, short=False, sep=":", plussign=False):
     elif short:
         fmt = sig + f1 + f2
         return fmt.format(abs(dd), mm)
-
+    #print(dd)
+    #print(mm)
     fmt = sig + f1 + f2 + f3
     return fmt.format(abs(dd), mm, ss)
 
