@@ -8,19 +8,23 @@ import stat
 import sys
 import copy
 import time
+import logging
 import errno
 from contextlib import contextmanager
 from collections import OrderedDict
 from io import StringIO
 from mock import patch
+import mock
 import numpy as np
 from astropy.io import fits
+import fitsio
 
 from despyastro import coords as cds
 from despyastro import genutil as gu
 from despyastro import tableio as tio
 from despyastro import wcsutil as wcs
 from despyastro import astrometry as ast
+from despyastro import CCD_corners as ccd
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -1142,6 +1146,119 @@ class TestAstrometry(unittest.TestCase):
         h2 = ast.update_wcs_matrix(header, 100, 100, 2160, 4146)
 
         self.assertAlmostEqual(h2['crval1'], 343.902416, 5)
+
+class TestCCD_coreners(unittest.TestCase):
+    imgfile = os.path.join(ROOT, 'raw', 'test_raw.fits')
+
+    def test_desdm_corners(self):
+        header = fits.open(self.imgfile)[1].header
+        expected = [344.13095408267225,
+                    -51.64229708325755,
+                    343.89110998512797,
+                    -51.559865443981,
+                    343.88445326937233,
+                    -51.71746333851118,
+                    344.3716658821924,
+                    -51.72437897595895,
+                    344.37669586780265,
+                    -51.566591752944554]
+
+        corners = ccd.DESDM_corners(header)
+        for i, val in enumerate(expected):
+            self.assertAlmostEqual(val, corners[i], 8)
+
+        corners2 = ccd.DESDM_corners(header, 200)
+        for i, val in enumerate(corners):
+            if i < 2:
+                self.assertEqual(val, corners2[i])
+            else:
+                self.assertAlmostEqual(val, corners2[i], 1)
+
+        header = fits.open(self.imgfile + '.fz')[1].header
+        corners2 = ccd.DESDM_corners(header)
+        for i, val in enumerate(corners):
+            self.assertAlmostEqual(val, corners2[i], 8)
+
+    def test_get_DESDM_corners_extant(self):
+        r = np.array([0., 125., 175., 190., 250.])
+        d = np.array([-25., 22, -86, 73., 43.6])
+        res = ccd.get_DESDM_corners_extent(r, d)
+        self.assertEqual(res[0], r[3])
+        self.assertEqual(res[1], r[2])
+        self.assertEqual(res[2], d.min())
+        self.assertEqual(res[3], d.max())
+        self.assertEqual(res[4], 'Y')
+
+        r = np.array([125., 175., 190., 250.])
+        d = np.array([22, -86, 73., 43.6])
+        res = ccd.get_DESDM_corners_extent(r, d)
+        self.assertEqual(res[0], r.min())
+        self.assertEqual(res[1], r.max())
+        self.assertEqual(res[2], d.min())
+        self.assertEqual(res[3], d.max())
+        self.assertEqual(res[4], 'N')
+
+    def test_update_desdm_corners_messages_and_errors(self):
+        logger = logging.getLogger('tester')
+        with mock.patch.object(logger, 'info') as lgr:
+            _ = ccd.update_DESDM_corners(None, logger=lgr)
+            self.assertTrue(lgr.info.called)
+            self.assertEqual(lgr.info.call_count, 2)
+
+        with capture_output() as (out, _):
+            _ = ccd.update_DESDM_corners(None, verb=True)
+            output = out.getvalue().strip()
+            self.assertTrue('Using header' in output)
+            self.assertTrue('WARNING' in output)
+
+        _, header = fitsio.read(self.imgfile, header=True)
+
+        with mock.patch.object(logger, 'info') as lgr:
+            _ = ccd.update_DESDM_corners(header, logger=lgr)
+            self.assertTrue(lgr.info.called)
+            self.assertEqual(lgr.info.call_count, 1)
+
+        with capture_output() as (out, _):
+            _ = ccd.update_DESDM_corners(header,get_extent=True, verb=True)
+            output = out.getvalue().strip()
+            self.assertTrue('Using header' in output)
+            self.assertTrue('DECCMIN' in output)
+
+        with capture_output() as (out, _):
+            _ = ccd.update_DESDM_corners(header, verb=True)
+            output = out.getvalue().strip()
+            self.assertTrue('Using header' in output)
+            self.assertFalse('DECCMIN' in output)
+
+        with patch('despyastro.CCD_corners.get_DESDM_corners_extent', side_effect=Exception):
+            with mock.patch.object(logger, 'info') as lgr:
+                _ = ccd.update_DESDM_corners(header, get_extent=True, logger=lgr)
+                self.assertTrue(lgr.info.called)
+                self.assertEqual(lgr.info.call_count, 2)
+
+        with patch('despyastro.CCD_corners.get_DESDM_corners_extent', side_effect=Exception):
+            with capture_output() as (out, _):
+                _ = ccd.update_DESDM_corners(header, get_extent=True)
+                output = out.getvalue().strip()
+                self.assertTrue('Problem computing' in output)
+
+    def test_update_desdm_corners(self):
+        _, header = fitsio.read(self.imgfile, header=True)
+        h = ccd.update_DESDM_corners(header)
+
+        for i in ['RA_CENT', 'DEC_CENT', 'RAC2', 'DECC2']:
+            self.assertEqual(header[i], h[i])
+
+        h = ccd.update_DESDM_corners(header, border=200)
+
+        for i in ['RA_CENT', 'DEC_CENT', 'RAC2', 'DECC2']:
+            self.assertAlmostEqual(header[i], h[i], 1)
+
+        self.assertFalse('RACMIN' in header)
+
+        h = ccd.update_DESDM_corners(header, get_extent=True)
+        self.assertTrue('RACMIN' in h)
+
 
 if __name__ == '__main__':
     unittest.main()
