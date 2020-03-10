@@ -100,9 +100,10 @@ def update_DESDM_corners(hdr, border=0, get_extent=False, verb=False, logger=Non
         print("     RAC2, DECC2 = {:12.7f}, {:12.7f} ".format(hdr['RAC2'], hdr['DECC2']))
         print("     RAC3, DECC3 = {:12.7f}, {:12.7f} ".format(hdr['RAC3'], hdr['DECC3']))
         print("     RAC4, DECC4 = {:12.7f}, {:12.7f} ".format(hdr['RAC4'], hdr['DECC4']))
-        print("  RACMIN, RACMAX = {:12.7f}, {:12.7f} ".format(hdr['RACMIN'], hdr['RACMAX']))
-        print("DECCMIN, DECCMAX = {:12.7f}, {:12.7f} ".format(hdr['DECCMIN'], hdr['DECCMAX']))
-        print("       CROSSRA0 = {:s} ".format(hdr['CROSSRA0']))
+        if get_extent:
+            print("  RACMIN, RACMAX = {:12.7f}, {:12.7f} ".format(hdr['RACMIN'], hdr['RACMAX']))
+            print("DECCMIN, DECCMAX = {:12.7f}, {:12.7f} ".format(hdr['DECCMIN'], hdr['DECCMAX']))
+            print("       CROSSRA0 = {:s} ".format(hdr['CROSSRA0']))
 
     return hdr
 
