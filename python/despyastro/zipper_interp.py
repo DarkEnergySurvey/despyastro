@@ -5,7 +5,6 @@ DEFAULT_MINCOLS = 1    # Narrowest feature to interpolate
 DEFAULT_MAXCOLS = None  # Widest feature to interpolate.  None means no limit.
 
 def zipper_interp(image, mask, interp_mask, axis=1, **kwargs):
-
     """
     Calls either zipper_interp_rows (axis=1) or zipper_interp_cols (axis=2)
     """
@@ -16,7 +15,6 @@ def zipper_interp(image, mask, interp_mask, axis=1, **kwargs):
     raise ValueError("ERROR: Need to specify axis as axis=1 or axis=2")
 
 def zipper_interp_rows(image, mask, interp_mask, **kwargs):
-
     """
     Performs zipper row interpolation.
     Based on Gary Berstein's row_interp.py inside pixcorrect

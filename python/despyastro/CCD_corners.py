@@ -1,13 +1,10 @@
-# $Id: CCD_corners.py 44632 2016-11-28 18:23:25Z felipe $
-# $Rev:: 44632                            $:  # Revision of last commit.
-# $LastChangedBy:: felipe                 $:  # Author of last commit.
-# $LastChangedDate:: 2016-11-28 12:23:25 #$:  # Date of last commit.
-
 import numpy
 from despyastro import wcsutil
 
 def update_DESDM_corners(hdr, border=0, get_extent=False, verb=False, logger=None):
-
+    """
+    Update the DESDM corners in the image
+    """
     mess = "Using header WCS to compute coordinates for CCD center and corners"
     if logger:
         logger.info(mess)
@@ -144,7 +141,7 @@ def get_DESDM_corners_extent(ras, decs):
 
 
 def DESDM_corners(hdr, border=0):
-
+    """
     #  DESDM CCD Image Corner Coordinates definitions for DECam
     #  see: https://desdb.cosmology.illinois.edu/confluence/display/PUB/CCD+Image+Corners+Coordinates
     #
@@ -152,7 +149,7 @@ def DESDM_corners(hdr, border=0):
     #                     x-axis
     #      (RA4, DEC4)                   (RA3, DEC3)
     #      Corner 4 +-----------------+ Corner 3
-    #    (1, NAXIS2) |                 | (NAXIS1, NAXIS2)
+    #   (1, NAXIS2) |                 | (NAXIS1, NAXIS2)
     #               |                 |
     #               |                 |
     #               |                 |
@@ -167,13 +164,14 @@ def DESDM_corners(hdr, border=0):
     #               |                 |
     #               |                 |
     #               |                 |
-    #     (RA1, DEC1)|                 | (RA2, DEC2)
+    #   (RA1, DEC1) |                 | (RA2, DEC2)
     #      Corner 1 +-----------------+ Corner 2
     #         (1, 1)                     (NAXIS1, 1)
-
+    """
     # For fpacked images, NAXIS1/NAXIS2 do not represent the true
     # dimensions of the image, so we need to use ZNAXIS1/ZNAXIS2
     # instead when they are present.
+
     if hdr.get('znaxis1') and hdr.get('znaxis2'):
         nx = hdr['znaxis1']
         ny = hdr['znaxis2']

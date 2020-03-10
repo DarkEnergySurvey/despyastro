@@ -1,10 +1,4 @@
 """
- $Id:$
- $Rev::                                  $:  # Revision of last commit.
- $LastChangedBy::                        $:  # Author of last commit.
- $LastChangedDate::                      $:  # Date of last commit.
-
-
  Taken from Erin Sheldon's esutil package at:
  http://esutil.googlecode.com/svn/trunk/esutil/coords.py
  Felipe Menanteau, NCSA, March 2014.
@@ -86,6 +80,16 @@
 
 
 """
+import math
+
+try:
+    import numpy
+    from numpy import where, sin, cos, arccos, arcsin, arctan2, sqrt, rad2deg, deg2rad
+    have_numpy = True
+except:
+    have_numpy = False
+
+
 _license = """
   Copyright (C) 2009  Erin Sheldon
 
@@ -103,14 +107,6 @@ _license = """
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-import math
-
-try:
-    import numpy
-    from numpy import where, sin, cos, arccos, arcsin, arctan2, sqrt, rad2deg, deg2rad
-    have_numpy = True
-except:
-    have_numpy = False
 
 PI = math.pi
 HALFPI = PI / 2.0
@@ -203,7 +199,7 @@ def euler(ai_in, bi_in, select, b1950=False, dtype='f8'):
     #  Eomega  = 6.3839743d           Galactic longitude of ecliptic equator
     # Parameters for all the different conversions
     if b1950:
-        equinox = '(B1950)'
+        # equinox = '(B1950)'
         psi = numpy.array([0.57595865315, 4.9261918136,
                            0.00000000000, 0.0000000000,
                            0.11129056012, 4.7005372834], dtype=dtype)
@@ -217,7 +213,7 @@ def euler(ai_in, bi_in, select, b1950=False, dtype='f8'):
                            0.0000000000, 0.00000000000,
                            4.7005372834, 0.11129056012], dtype=dtype)
     else:
-        equinox = '(J2000)'
+        # equinox = '(J2000)'
 
         psi = numpy.array([0.57477043300, 4.9368292465,
                            0.00000000000, 0.0000000000,
@@ -548,6 +544,10 @@ def gcirc(ra1deg, dec1deg, ra2deg, dec2deg, getangle=False):
 
 # utility functions
 def atbound(longitude, minval, maxval):
+    """
+    Wraps the longitude until it is within the bounds. The bounds must define an entire circle (e.g
+    180 to 180 or 0 to 360)
+    """
     w, = numpy.where(longitude < minval)
     while w.size > 0:
         longitude[w] += 360.0
@@ -560,7 +560,9 @@ def atbound(longitude, minval, maxval):
 
 
 def atbound2(theta, phi):
-
+    """
+    Wraps theta and phi to be between -180 and 180 for theta, and 0 and 360 for phi.
+    """
     atbound(theta, -180.0, 180.0)
 
     w, = numpy.where(numpy.abs(theta) > 90.0)
