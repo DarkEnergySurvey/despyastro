@@ -916,14 +916,16 @@ class TestWCSUtil(unittest.TestCase):
         xn, yn = wc.sky2image(lat, long, False, False)
 
 
-        self.assertTrue(np.allclose(xl, xn))
-        self.assertTrue(np.allclose(yl, yn))
+        self.assertTrue(np.allclose(xl, xn, atol=1e-4))
+        self.assertTrue(np.allclose(yl, yn, atol=1e-4))
 
         lat, long = wc.image2sky(xl, yl)
         xn, yn = wc.sky2image(lat, long, True, False)
 
-        self.assertTrue(np.allclose(xl, xn))
-        self.assertTrue(np.allclose(yl, yn))
+        self.assertTrue(np.allclose(xl, xn, atol=1e-4))
+        self.assertTrue(np.allclose(yl, yn, atol=1e-3))
+
+        self.assertRaises(ValueError, wc.sky2image, [1, 2] ,[1])
 
     def test_extractprojection(self):
         header = fits.open(self.imgfile)[1].header
@@ -1003,6 +1005,15 @@ class TestWCSUtil(unittest.TestCase):
 
         self.assertRaises(ValueError, wc.sph2image, lat, long)
 
+        _ = wc.image2sph((np.random.random_sample((10,)) + 0.5) * 300, (np.random.random_sample((10,)) + 0.5) * 30)
+
+        res = wc.sph2image([2, 5.], [40, 60.])
+
+        self.assertEqual(res[0][0], 0.0)
+        self.assertEqual(res[0][1], 0.0)
+        self.assertEqual(res[1][0], 0.0)
+        self.assertEqual(res[1][1], 0.0)
+
     def test_getpole(self):
         header = fits.open(self.imgfile)[1].header
 
@@ -1045,12 +1056,86 @@ class TestWCSUtil(unittest.TestCase):
         self.assertAlmostEqual(6.032361055, a, 8)
         self.assertAlmostEqual(0.667900207, b, 8)
 
+    def test_getpole_corner_cases(self):
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+        wc.theta0 = 0.
+
+        wc.wcs['crval2'] = 0
+        wc.longpole = 90.
+        wc.latpole = 45.
+        a, b = wc.GetPole()
+        self.assertEqual(b, 45.0)
+
+        wc.latpole = -89
+        a, b = wc.GetPole()
+        self.assertEqual(-89, b)
+
+        wc = wcs.WCS(header)
+        wc.wcs['crval1'] = 0.
+        wc.wcs['crval2'] = 34.9
+        wc.theta0 = 202.6
+        a, b = wc.GetPole()
+        self.assertAlmostEqual(a, math.pi / 2., 7)
+        self.assertAlmostEqual(b, 0.567232, 5)
+
+        wc.wcs['crval1'] = 0.
+        wc.wcs['crval2'] = 5.4
+        wc.theta0 = 5.4
+        a, b = wc.GetPole()
+        self.assertAlmostEqual(a, -2 * math.pi, 7)
+        self.assertAlmostEqual(b, math.pi / 2., 7)
+
+        wc.wcs['crval1'] = 0.
+        wc.wcs['crval2'] = 5.4
+        wc.theta0 = -5.4
+        a, b = wc.GetPole()
+        self.assertAlmostEqual(a, -math.pi, 7)
+        self.assertAlmostEqual(b, -math.pi / 2.)
+
     def test_setangles(self):
         header = fits.open(self.imgfile)[1].header
 
         wc = wcs.WCS(header)
 
         wc.SetAngles(0, 90, 85)
+
+        self.assertEqual(wc.longpole, 0)
+        self.assertEqual(wc.latpole, 90)
+        self.assertEqual(wc.theta0, 85)
+
+        wc.wcs['longpole'] = 22.5
+        wc.wcs['latpole'] = 18.325
+        wc.wcs['theta0'] = 42.5
+
+        wc.SetAngles(0, 90, 85)
+        self.assertEqual(wc.longpole, 22.5)
+        self.assertEqual(wc.latpole, 18.325)
+        self.assertEqual(wc.theta0, 42.5)
+
+    def test_distort(self):
+        header = fits.open(self.imgfile)[1].header
+
+        wc = wcs.WCS(header)
+
+        x = np.random.random_sample((10,)) * 100.
+        y = np.random.random_sample((10,)) * 100.
+
+        xd, yd = wc.Distort(x, y)
+
+        self.assertEqual(x.shape, (10,))
+
+        y = np.random.random_sample((9,)) * 100.
+        self.assertRaises(ValueError, wc.Distort, x, y)
+
+        y = np.random.random_sample((10,)) * 100.
+        wc.distort = None
+        xd, yd = wc.Distort(x, y)
+
+        self.assertTrue(np.array_equal(xd, x))
+        self.assertTrue(np.array_equal(yd, y))
+
 
 class TestAstrometry(unittest.TestCase):
     imgfile = os.path.join(ROOT, 'raw', 'test_raw.fits.fz')
