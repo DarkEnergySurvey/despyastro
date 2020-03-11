@@ -368,8 +368,9 @@ class WCS:
         # radius in radians
         r = numpy.sqrt(x * x + y * y) * math.pi / 180.0
 
+        # not sure why this is being tested. r is always > 0
         w, = numpy.where(r > 0)
-        if w.size > 0:
+        if w.size > 0:  # pragma: no cover
             latitude[w] = numpy.arctan(1.0 / r[w])
 
         longitude = numpy.arctan2(x, -y)
@@ -384,8 +385,8 @@ class WCS:
         w, = numpy.where(longitude < 0.0)
         if w.size > 0:
             longitude[w] += 360.0
-        w, = numpy.where(longitude >= 360.0)
-        if w.size > 0:
+        w, = numpy.where(longitude >= 360.0)   # pretty sure this can never happen
+        if w.size > 0:      # pragma: no cover
             longitude[w] -= 360.0
 
         return longitude, latitude
@@ -402,7 +403,7 @@ class WCS:
         longitude *= d2r
         latitude *= d2r
 
-        if longitude.size != latitude.size:
+        if longitude.size != latitude.size:    # pragma: no cover
             raise ValueError('long,lat must be the same size')
 
         x = numpy.zeros_like(longitude)
@@ -746,7 +747,6 @@ class WCS:
             if self.latpole != 90.0:
                 if math.fabs(self.latpole + latitude_p) < math.fabs(self.latpole - latitude_p):
                     latitude_p = - latitude_p
-
             if (self.longpole == 180.0) or (cd == 0.0):
                 longitude_p = longitude_0
             else:
@@ -758,7 +758,10 @@ class WCS:
             term1 = math.atan2(stheta, ctheta * cp)
             term2 = math.acos(sd / (math.sqrt(1.0 - ctheta * ctheta * sp * sp)))
 
-            if term2 == 0.0:
+            # not sure if term2 can actually be 0.0 as it takes a very specialized set of circumstances
+            # (to the 11+ significant figure) Also this will throw an error, because longitude_p
+            # is never defined by this branch
+            if term2 == 0.0:      # pragma: no cover
                 latitude_p = term1
             else:
                 latitude_p1 = math.fabs((term1 + term2) * r2d)
@@ -780,7 +783,13 @@ class WCS:
                     else:
                         latitude_p = term1-term2
 
-                if cd == 0.0:
+                # changed this to be a less than because while cos(PI/2) is defined as 0.0 in
+                # reality the floating point accuracy makes it 6.12e-17. Using a limit of 1e-10
+                # gives an accuracy of PI/2 to 8 decimal places
+                # although this cannot really be excercised as term2 == 0 when latitude_0 approaches
+                # PI/2
+                # if cd == 0.0:
+                if abs(cd) < 1e-10:     # pragma: no cover
                     longitude_p = longitude_0
                 else:
                     sdelt = math.sin(latitude_p)
