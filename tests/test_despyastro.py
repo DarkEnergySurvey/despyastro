@@ -25,6 +25,7 @@ from despyastro import tableio as tio
 from despyastro import wcsutil as wcs
 from despyastro import astrometry as ast
 from despyastro import CCD_corners as ccd
+from despyastro import zipper_interp as zpi
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -903,7 +904,7 @@ class TestWCSUtil(unittest.TestCase):
         wc = wcs.WCS(header)
 
         xl = np.random.randint(3000, size=25)
-        yl = np.random.randint(3000, size=25)
+        yl = np.random.randint(30, size=25)
 
         for x, y in zip(xl, yl):
             lat, long = wc.image2sky(x, y)
@@ -1345,5 +1346,71 @@ class TestCCD_coreners(unittest.TestCase):
         self.assertTrue('RACMIN' in h)
 
 
+class TestZipper_interp(unittest.TestCase):
+    size = 50
+    xr = [0, 5, 22, 18, 49]
+    yr = [range(5,40), range(3,12), range(8,40), range(8,40), range(10,22)]
+
+    xc = [range(36,48), range(25,39), range(25,39)]
+    yc = [36, 38, 4]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.im = np.random.random_sample((cls.size, cls.size)) * 10.
+        cls.c_msk = np.zeros((cls.size, cls.size), dtype=np.int32)
+        cls.c_in_msk = np.zeros((cls.size, cls.size), dtype=np.int32)
+
+        for i, v in enumerate(cls.yc):
+            for j in cls.xc[i]:
+                cls.c_msk[j, v] = 1
+                if not i%2:
+                    cls.c_in_msk[j, v] = 1
+                else:
+                    cls.c_in_msk[j, v] = 2
+
+        cls.r_msk = np.zeros((cls.size, cls.size), dtype=np.int32)
+        cls.r_in_msk = np.zeros((cls.size, cls.size), dtype=np.int32)
+
+        for i, v in enumerate(cls.xr):
+            for j in cls.yr[i]:
+                cls.r_msk[v, j] = 1
+                if not i%2:
+                    cls.r_in_msk[v, j] = 1
+                else:
+                    cls.r_in_msk[v, j] = 2
+
+    def test_zipper_interp(self):
+        pass
+
+    def test_zipper_interp_rows(self):
+
+        self.assertTrue(self.im.min() > 0.)
+        in_vals = self.im[22][8:39]
+        im, ms = zpi.zipper_interp_rows(self.im, self.r_msk, self.r_in_msk)
+
+
+        dim = im-self.im
+        self.assertTrue(dim.max() > 0.)
+
+        out_vals = im[22][8:39]
+        dif = abs(in_vals - out_vals)
+        self.assertTrue(dif.min() > 0.)
+
+
+    def test_zipper_interp_cols(self):
+        self.assertTrue(self.im.min() > 0.)
+        in_vals = self.im.transpose()[36][36:47]
+        im, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk)
+
+        dim = im-self.im
+        self.assertTrue(dim.max() > 0.)
+
+        out_vals = im.transpose()[36][36:47]
+
+        dif = abs(in_vals - out_vals)
+        self.assertTrue(dif.min() > 0.)
+
+
 if __name__ == '__main__':
     unittest.main()
+
