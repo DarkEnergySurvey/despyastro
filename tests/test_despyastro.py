@@ -42,7 +42,7 @@ def capture_output():
     finally:
         sys.stdout, sys.stderr = old_out, old_err
 
-'''
+
 class TestCoords(unittest.TestCase):
     def test_euler_J2000_galactic(self):
         long = 25.0
@@ -1346,7 +1346,6 @@ class TestCCD_coreners(unittest.TestCase):
         self.assertTrue('RACMIN' in h)
 
 
-'''
 class TestZipper_interp(unittest.TestCase):
     size = 50
     xr = [0, 5, 22, 18, 49]
