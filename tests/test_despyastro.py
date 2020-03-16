@@ -1468,6 +1468,18 @@ class TestZipper_interp(unittest.TestCase):
                 self.assertEqual(1, res)
                 self.assertTrue('Logic', output)
 
+        with capture_output() as (out, _):
+            _, _ = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=-2)
+            output = out.getvalue().strip()
+            self.assertTrue('yblock must' in output)
+
+        with patch('despyastro.zipper_interp.np.all', side_effect=[False]):
+            with capture_output() as (out, _):
+                res = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=-2)
+                self.assertEqual(res, 1)
+                output = out.getvalue().strip()
+                self.assertTrue('Logic' in output)
+
     def test_zipper_interp_cols(self):
         self.assertTrue(self.im.min() > 0.)
         in_vals = self.im.transpose()[36][36:47]
@@ -1480,6 +1492,28 @@ class TestZipper_interp(unittest.TestCase):
 
         dif = abs(in_vals - out_vals)
         self.assertTrue(dif.min() > 0.)
+
+        im, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, DEFAULT_MAXCOLS=10)
+
+        dim = im - self.im
+        self.assertFalse(dim.max() > 0.)
+
+
+        im, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=0)
+
+        img = np.zeros((self.size, self.size), dtype=np.float32)
+        with capture_output() as (out, _):
+            im, ms = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, yblock=0)
+            output = out.getvalue().strip()
+            self.assertTrue('WARNING' in output and 'sampling' in output)
+
+        im2, msk2 = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, dilate=1)
+
+        im3, msk3 = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, add_noise=True)
+
+        im4, msk4 = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, BADPIX_INTERP=8, region_file='file.reg')
+        self.assertTrue(os.path.exists('file.reg'))
+        os.unlink('file.reg')
 
 
 if __name__ == '__main__':
