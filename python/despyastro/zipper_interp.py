@@ -1,4 +1,3 @@
-
 import numpy as np
 
 DEFAULT_MINCOLS = 1    # Narrowest feature to interpolate
@@ -112,6 +111,9 @@ def zipper_interp_rows(image, mask, interp_mask, **kwargs):
     right_only = np.where(np.logical_and(~has_left, has_right))[0]
     all_cases = np.concatenate((left_and_right, left_only, right_only))
 
+    image_interp = np.copy(image)
+    mask_interp = np.copy(mask)
+
     # Loop over all cases (rows) to interpolate
     for run in all_cases:
 
@@ -123,15 +125,15 @@ def zipper_interp_rows(image, mask, interp_mask, **kwargs):
         x1 = xstart[run] # x_left index
         x2 = xend[run]   # x_right index
         y1 = max(0, y0 - yblock + 1)            # lower y for block
-        y2 = min(image.shape[0], y0 + yblock) # upper y for block
+        y2 = min(image_interp.shape[0], y0 + yblock) # upper y for block
 
         # Decide case and from border condition
         if run in left_only:
-            im_vals = image[y1:y2, x1 - 1]
+            im_vals = image_interp[y1:y2, x1 - 1]
         elif run in list(right_only):
-            im_vals = image[y1:y2, x2]
+            im_vals = image_interp[y1:y2, x2]
         elif run in left_and_right:
-            im_vals = np.append(image[y1:y2, x1 - 1], image[y1:y2, x2])
+            im_vals = np.append(image_interp[y1:y2, x1 - 1], image_interp[y1:y2, x2])
 
         # Dilate zipper in the x-direction?
         if xdilate > 0:
@@ -139,14 +141,14 @@ def zipper_interp_rows(image, mask, interp_mask, **kwargs):
             x2 = x2 + int(xdilate)
         mu = np.median(im_vals)
         if mu > 1 and add_noise:
-            image[y0, x1:x2] = np.random.poisson(mu, x2 - x1)
+            image_interp[y0, x1:x2] = np.random.poisson(mu, x2 - x1)
         else:
-            image[y0, x1:x2] = mu
+            image_interp[y0, x1:x2] = mu
 
         if BADPIX_INTERP:
-            mask[y0, x1:x2] |= BADPIX_INTERP
+            mask_interp[y0, x1:x2] |= BADPIX_INTERP
 
-    return image, mask
+    return image_interp, mask_interp
 
 def zipper_interp_cols(image, mask, interp_mask, **kwargs):
 
