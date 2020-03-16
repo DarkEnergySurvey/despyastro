@@ -42,7 +42,7 @@ def capture_output():
     finally:
         sys.stdout, sys.stderr = old_out, old_err
 
-
+'''
 class TestCoords(unittest.TestCase):
     def test_euler_J2000_galactic(self):
         long = 25.0
@@ -1346,6 +1346,7 @@ class TestCCD_coreners(unittest.TestCase):
         self.assertTrue('RACMIN' in h)
 
 
+'''
 class TestZipper_interp(unittest.TestCase):
     size = 50
     xr = [0, 5, 22, 18, 49]
@@ -1353,6 +1354,10 @@ class TestZipper_interp(unittest.TestCase):
 
     xc = [range(36,48), range(25,39), range(25,39)]
     yc = [36, 38, 4]
+
+    xr1 = [0, 5, 22, 18, 49]
+    yr1 = [range(0,25), range(3,12), range(8,40), range(8,40), range(10,22)]
+
 
     @classmethod
     def setUpClass(cls):
@@ -1383,11 +1388,9 @@ class TestZipper_interp(unittest.TestCase):
         pass
 
     def test_zipper_interp_rows(self):
-
         self.assertTrue(self.im.min() > 0.)
         in_vals = self.im[22][8:39]
         im, ms = zpi.zipper_interp_rows(self.im, self.r_msk, self.r_in_msk)
-
 
         dim = im-self.im
         self.assertTrue(dim.max() > 0.)
@@ -1396,6 +1399,75 @@ class TestZipper_interp(unittest.TestCase):
         dif = abs(in_vals - out_vals)
         self.assertTrue(dif.min() > 0.)
 
+        im, ms = zpi.zipper_interp_rows(self.im, self.r_msk, self.r_in_msk, DEFAULT_MAXCOLS=10)
+
+        dim = im-self.im
+        self.assertFalse(dim.max() > 0.)
+
+        out_vals = im[22][8:39]
+        dif = abs(in_vals - out_vals)
+        self.assertFalse(dif.min() > 0.)
+
+    def test_zipper_interp_left_right(self):
+        img = np.random.random_sample((5, 5)) * 10.
+        msk = np.array([[0, 1, 1, 2, 0],
+                        [0, 0, 1, 1, 0],
+                        [1, 1, 1, 1, 0],
+                        [0, 1, 1, 1, 0],
+                        [1, 2, 1, 0, 1]], dtype=np.int32)
+        in_msk = np.array([[1, 1, 1, 1, 1],
+                           [1, 1, 1, 1, 1],
+                           [1, 1, 2, 2, 2],
+                           [1, 1, 1, 1, 1],
+                           [1, 1, 1, 1, 1]], dtype=np.int32)
+        inv_msk = np.array([3,3,3,2], dtype=np.int32)
+
+        im, ms = zpi.zipper_interp_rows(img, msk, in_msk, invalid_mask=inv_msk)
+
+        self.assertTrue(np.array_equal(ms, msk))
+        self.assertFalse(np.array_equal(im, img))
+
+        diff = img - im
+        xd, yd = np.where(diff != 0)
+
+        im1, ms1 = zpi.zipper_interp_rows(img, msk, in_msk, dilate=1, invalid_mask=inv_msk)
+
+        diff = img - im1
+        xd1, yd1 = np.where(diff != 0)
+        self.assertTrue(len(xd) < len(xd1))
+        self.assertTrue(len(yd) < len(yd1))
+
+        im2 , ms2 = zpi.zipper_interp_rows(img, msk, in_msk, add_noise=True, invalid_mask=inv_msk)
+        diff = img - im2
+        xd2, yd2 = np.where(diff != 0)
+
+        self.assertTrue(np.array_equal(xd, xd2))
+        self.assertTrue(np.array_equal(yd, yd2))
+        self.assertFalse(np.array_equal(im, im2))
+
+
+        im3, ms3 = zpi.zipper_interp_rows(img, msk, in_msk, invalid_mask=inv_msk, BADPIX_INTERP=3)
+
+        diff = img - im2
+        xd3, yd3 = np.where(diff != 0)
+        self.assertTrue(np.array_equal(xd, xd3))
+        self.assertTrue(np.array_equal(yd, yd3))
+        self.assertTrue(np.array_equal(im, im3))
+        self.assertFalse(np.array_equal(ms, ms3))
+        diff = ms - ms3
+        mx, my = np.where(diff != 0)
+        self.assertTrue(np.array_equal(mx, xd3))
+        self.assertTrue(np.array_equal(my, yd3))
+
+
+    def test_errors(self):
+        with patch('despyastro.zipper_interp.np.where', side_effect=[[np.array([1,2,3]),np.array([5,6,7])],
+                                                                              [np.array([9,8]), np.array([4,5])]]):
+            with capture_output() as (out, _):
+                res = zpi.zipper_interp_rows(self.im, self.r_msk, self.r_in_msk)
+                output = out.getvalue().strip()
+                self.assertEqual(1, res)
+                self.assertTrue('Logic', output)
 
     def test_zipper_interp_cols(self):
         self.assertTrue(self.im.min() > 0.)
