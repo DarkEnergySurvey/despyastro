@@ -132,7 +132,7 @@ def zipper_interp_rows(image, mask, interp_mask, **kwargs):
             im_vals = image_interp[y1:y2, x1 - 1]
         elif run in list(right_only):
             im_vals = image_interp[y1:y2, x2]
-        elif run in left_and_right:
+        else:  #if run in left_and_right: has to be in left_and_right
             im_vals = np.append(image_interp[y1:y2, x1 - 1], image_interp[y1:y2, x2])
 
         # Dilate zipper in the x-direction?
