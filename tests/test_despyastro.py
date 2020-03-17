@@ -42,7 +42,7 @@ def capture_output():
     finally:
         sys.stdout, sys.stderr = old_out, old_err
 
-
+'''
 class TestCoords(unittest.TestCase):
     def test_euler_J2000_galactic(self):
         long = 25.0
@@ -1346,6 +1346,7 @@ class TestCCD_coreners(unittest.TestCase):
         self.assertTrue('RACMIN' in h)
 
 
+'''
 class TestZipper_interp(unittest.TestCase):
     size = 50
     xr = [0, 5, 22, 18, 49]
@@ -1384,7 +1385,36 @@ class TestZipper_interp(unittest.TestCase):
                     cls.r_in_msk[v, j] = 2
 
     def test_zipper_interp(self):
-        pass
+        logger = logging.getLogger('tester')
+        self.assertTrue(self.im.min() > 0.)
+        in_vals = self.im[22][8:39]
+
+        with mock.patch.object(logger, 'info') as lgr:
+            im, ms = zpi.zipper_interp(self.im, self.r_msk, self.r_in_msk, 1, logger=lgr)
+
+            dim = im-self.im
+            self.assertTrue(dim.max() > 0.)
+
+            out_vals = im[22][8:39]
+            dif = abs(in_vals - out_vals)
+            self.assertTrue(dif.min() > 0.)
+            self.assertTrue(lgr.info.called)
+            self.assertEqual(lgr.info.call_count, 1)
+
+
+        self.assertTrue(self.im.min() > 0.)
+        in_vals = self.im.transpose()[36][36:47]
+        im, ms = zpi.zipper_interp(self.im, self.c_msk, self.c_in_msk, 2)
+
+        dim = im-self.im
+        self.assertTrue(dim.max() > 0.)
+
+        out_vals = im.transpose()[36][36:47]
+
+        dif = abs(in_vals - out_vals)
+        self.assertTrue(dif.min() > 0.)
+
+
 
     def test_zipper_interp_rows(self):
         self.assertTrue(self.im.min() > 0.)
@@ -1493,23 +1523,40 @@ class TestZipper_interp(unittest.TestCase):
         dif = abs(in_vals - out_vals)
         self.assertTrue(dif.min() > 0.)
 
-        im, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, DEFAULT_MAXCOLS=10)
+        im2, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, DEFAULT_MAXCOLS=13)
 
-        dim = im - self.im
-        self.assertFalse(dim.max() > 0.)
+        changes = np.where(im2 != im)
+        self.assertTrue(changes[1].max() < 13)
 
+        im2, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, DEFAULT_MAXCOLS=25)
 
-        im, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=0)
+        changes = np.where(im2 != im)
+        self.assertEqual(changes[1].shape, (0,))
+
+        im2, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, DEFAULT_MAXCOLS=2)
+
+        changes = np.where(im2 != im)
+
+        self.assertTrue(changes[1].min() > 2)
+        self.assertTrue(changes[1].max() > 2)
+
+        im2, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=0)
+        self.assertTrue(np.array_equal(np.where(im != self.im), np.where(im2 != self.im)))
+        self.assertFalse(np.array_equal(im, im2))
+
+        im1, ms1 = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=0, add_noise=True)
+        diff = abs(im - im1)
+        self.assertTrue(diff.max() > 0.)
 
         img = np.zeros((self.size, self.size), dtype=np.float32)
         with capture_output() as (out, _):
-            im, ms = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, yblock=0)
+            _, ms = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, yblock=0)
             output = out.getvalue().strip()
             self.assertTrue('WARNING' in output and 'sampling' in output)
 
-        im2, msk2 = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, dilate=1)
-
-        im3, msk3 = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, add_noise=True)
+        im2, msk2 = zpi.zipper_interp_cols(self.im, self.c_msk, 2, ydilate=1)
+        self.assertFalse(np.array_equal(np.where(im != self.im), np.where(im2 != self.im)))
+        self.assertFalse(np.array_equal(im, im2))
 
         im4, msk4 = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, BADPIX_INTERP=8, region_file='file.reg')
         self.assertTrue(os.path.exists('file.reg'))
