@@ -1346,7 +1346,6 @@ class TestCCD_coreners(unittest.TestCase):
         self.assertTrue('RACMIN' in h)
 
 
-
 class TestZipper_interp(unittest.TestCase):
     size = 50
     xr = [0, 5, 22, 18, 49]
@@ -1414,7 +1413,8 @@ class TestZipper_interp(unittest.TestCase):
         dif = abs(in_vals - out_vals)
         self.assertTrue(dif.min() > 0.)
 
-
+    def test_interp_errors(self):
+        self.assertRaises(ValueError, zpi.zipper_interp, None, None, None, 5)
 
     def test_zipper_interp_rows(self):
         self.assertTrue(self.im.min() > 0.)
@@ -1503,6 +1503,27 @@ class TestZipper_interp(unittest.TestCase):
             output = out.getvalue().strip()
             self.assertTrue('yblock must' in output)
 
+        logger = logging.getLogger('tester')
+        with mock.patch.object(logger, 'info') as lgr:
+            im, ms = zpi.zipper_interp_cols(self.im, self.r_msk, 2, ydilate=1, yblock=-2,
+                                       region_file='file.reg',logger=lgr)
+            self.assertTrue(os.path.exists('file.reg'))
+            os.unlink('file.reg')
+
+            self.assertTrue(lgr.info.called)
+            self.assertEqual(lgr.info.call_count, 3)
+        img = np.zeros((self.size, self.size), dtype=np.float32)
+        with capture_output() as (out, _):
+            _, ms = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, yblock=0)
+            output = out.getvalue().strip()
+            self.assertTrue('WARNING' in output and 'sampling' in output)
+
+        logger = logging.getLogger('tester')
+        with mock.patch.object(logger, 'info') as lgr:
+            _, ms = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, yblock=0, logger=lgr)
+            self.assertTrue(lgr.info.called)
+            self.assertEqual(lgr.info.call_count, 3)
+
         with patch('despyastro.zipper_interp.np.all', side_effect=[False]):
             with capture_output() as (out, _):
                 res = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, yblock=-2)
@@ -1549,10 +1570,6 @@ class TestZipper_interp(unittest.TestCase):
         self.assertTrue(diff.max() > 0.)
 
         img = np.zeros((self.size, self.size), dtype=np.float32)
-        with capture_output() as (out, _):
-            _, ms = zpi.zipper_interp_cols(img, self.c_msk, self.c_in_msk, yblock=0)
-            output = out.getvalue().strip()
-            self.assertTrue('WARNING' in output and 'sampling' in output)
 
         im2, msk2 = zpi.zipper_interp_cols(self.im, self.c_msk, 2, ydilate=1)
         self.assertFalse(np.array_equal(np.where(im != self.im), np.where(im2 != self.im)))
