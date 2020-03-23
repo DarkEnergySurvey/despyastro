@@ -1543,6 +1543,9 @@ class TestZipper_interp(unittest.TestCase):
 
         dif = abs(in_vals - out_vals)
         self.assertTrue(dif.min() > 0.)
+        im1, ms = zpi.zipper_interp_cols(self.im, self.c_msk, 1, ydilate=1)
+        diff = np.where(abs(im - im1) > 0.)
+        self.assertTrue(len(diff[0]) > 0)
 
         im2, ms = zpi.zipper_interp_cols(self.im, self.c_msk, self.c_in_msk, DEFAULT_MAXCOLS=13)
 
@@ -1571,6 +1574,7 @@ class TestZipper_interp(unittest.TestCase):
 
         img = np.zeros((self.size, self.size), dtype=np.float32)
 
+        print('aaa')
         im2, msk2 = zpi.zipper_interp_cols(self.im, self.c_msk, 2, ydilate=1)
         self.assertFalse(np.array_equal(np.where(im != self.im), np.where(im2 != self.im)))
         self.assertFalse(np.array_equal(im, im2))
