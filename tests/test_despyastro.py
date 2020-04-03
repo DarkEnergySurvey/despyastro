@@ -341,7 +341,7 @@ class TestCoords(unittest.TestCase):
     def test_ra_parse(self):
         ra_str = '05:25:22'
         ra = cds.ra_parse(ra_str)
-        self.assertAlmostEqual(ra, 75.422778, 5)
+        self.assertAlmostEqual(ra, 81.341666, 5)
 
         ra = cds.ra_parse(ra_str, False)
         self.assertAlmostEqual(ra, 5.422778, 5)
@@ -350,7 +350,7 @@ class TestCoords(unittest.TestCase):
         self.assertEqual(75., cds.ra_parse(ra_str))
 
         ra_str = '5:30'
-        self.assertEqual(75.5, cds.ra_parse(ra_str))
+        self.assertEqual(82.5, cds.ra_parse(ra_str))
 
     def test_fitsheader2dict(self):
         header = fits.Header()
@@ -910,8 +910,8 @@ class TestWCSUtil(unittest.TestCase):
             lat, long = wc.image2sky(x, y)
             xn, yn = wc.sky2image(lat, long)
 
-            self.assertAlmostEqual(x, xn, 6)
-            self.assertAlmostEqual(y, yn, 6)
+            self.assertTrue(np.allclose(x, xn))
+            self.assertTrue(np.allclose(y, yn))
 
         lat, long = wc.image2sky(xl, yl, False)
         xn, yn = wc.sky2image(lat, long, False, False)
@@ -1574,7 +1574,6 @@ class TestZipper_interp(unittest.TestCase):
 
         img = np.zeros((self.size, self.size), dtype=np.float32)
 
-        print('aaa')
         im2, msk2 = zpi.zipper_interp_cols(self.im, self.c_msk, 2, ydilate=1)
         self.assertFalse(np.array_equal(np.where(im != self.im), np.where(im2 != self.im)))
         self.assertFalse(np.array_equal(im, im2))
