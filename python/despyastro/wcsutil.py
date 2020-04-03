@@ -1,48 +1,14 @@
 """
 
- $Id:$
- $Rev::                                  $:  # Revision of last commit.
- $LastChangedBy::                        $:  # Author of last commit.
- $LastChangedDate::                      $:  # Date of last commit.
-
-
  Taken from Erin Sheldon's esutil package at:
- http://esutil.googlecode.com/svn/trunk/esutil/wcsutil.py
- Felipe Menanteau, NCSA, March 2014.
+ https://github.com/esheldon/esutil/blob/master/esutil/wcsutil.py
+ 2020
 
 Module:
     wcsutil
 
 Contains the class WCS to perform world coordinate system transformations.
 See documentation for the WCS class for more information.
-
-Examples:
-    # Use a fits header as initialization to a WCS class and convert
-    # image (x,y) to equatorial longitude,latitude (ra,dec)
-    import wcsutil
-    import pyfits
-    hdr=pyfits.getheader(fname)
-    wcs = wcsutil.WCS(hdr)
-
-    # convert x,y to ra,dec. x,y can be scalars or numpy arrays.
-    # The returned ra,dec are always numpy arrays.
-
-    ra,dec = wcs.image2sky(x,y)
-
-    # the inverse.  When there is a distortion model prosent, by default it
-    # finds the root of the forward transform, which is most accurate way to do
-    # the inversion.  Send find=False to attempt to use an inverse polynomial.
-
-    x,y = wcs.sky2image(ra,dec)
-
-
-Modification History:
-    Early 2009, created. Erin Sheldon, NYU
-
-    Now included in esutil.  Cleaned up imports so the module can be imported
-    without numpy/scipy even though nothing will work.  2009-11-01. E.S.S. BNL
-
-    2011-06-18: If input are scalars, return scalars
 
 """
 
@@ -69,12 +35,15 @@ import sys
 try:
     import numpy
     from numpy import isscalar
+    import scipy.optimize
+    from scipy.optimize import leastsq
     have_numpy = True
 except:
     have_numpy = False
 
 r2d = 180.0 / math.pi
 d2r = math.pi / 180.0
+DEFTOL = 1e-8
 
 # map the odd scamp naming scheme onto a matrix
 # I didn't figure out the formula
@@ -128,9 +97,9 @@ _allowed_units = ['deg']
 
 # same mapping for the inverse
 smkeys = list(_scamp_map.keys())
-for k in smkeys:
-    newkey = k.replace('pv', 'pvi')
-    _scamp_map[newkey] = _scamp_map[k]
+for item in smkeys:
+    newkey = item.replace('pv', 'pvi')
+    _scamp_map[newkey] = _scamp_map[item]
 
 
 class WCS:
@@ -191,6 +160,7 @@ class WCS:
         # Convert to internal dictionary and set some attributes of this
         # instance
         self.wcs = self.ConvertWCS(wcs)
+        self._set_naxis()
 
         # Set these as attributes, either from above keywords or from the
         # wcs header
@@ -199,6 +169,10 @@ class WCS:
         # Now set a bunch more instance attributes from the wcs in a form
         # that is easier to work with
         self.ExtractFromWCS()
+
+        # for finding the inverse trans
+        self.lonlat_answer = numpy.zeros(2, dtype='f8')
+        self.xyguess = numpy.zeros(2, dtype='f8')
 
     def __repr__(self):
         import pprint
@@ -210,6 +184,71 @@ class WCS:
         self.wcs[key] = val
     def keys(self):
         return list(self.wcs.keys())
+
+    def get_naxis(self):
+        """
+        get [nx,ny], properly accounting for compressed data that
+        use znaxis*
+
+        returns
+        -------
+        [nx,ny] as an array
+        """
+        return self.naxis.copy()
+
+    def get_jacobian(self, x, y, distort=True, step=1.0):
+        """
+        Get the elementes of the jacobian matrix at the specified locations
+        This method currently assumes the system is ra,dec
+
+        parameters
+        ----------
+        x,y: scalars or arrays
+            x and y coords in the image
+        distort:  bool, optional
+            Use the distortion model if present.  Default is True
+        step: float
+            Step used for central difference formula, in pixels.  Default is
+            1.0 pixels.
+
+        returns
+        -------
+        jacobian elements: tuple of arrays
+            dra_dx, dra_dy, ddec_dx, ddec_dy
+
+        method
+        ------
+        Finite difference
+        """
+
+        fac = 1.0/(2*step)
+
+        _, dec = self.image2sky(x, y, distort=distort)
+
+        xp = x + step
+        xm = x - step
+        yp = y + step
+        ym = y - step
+
+        ra_p0, dec_p0 = self.image2sky(xp, y, distort=distort)
+        ra_m0, dec_m0 = self.image2sky(xm, y, distort=distort)
+
+        ra_0p, dec_0p = self.image2sky(x, yp, distort=distort)
+        ra_0m, dec_0m = self.image2sky(x, ym, distort=distort)
+
+        # in arcsec/pixel
+        dra_dx = fac*3600.0*(ra_p0-ra_m0)
+        dra_dy = fac*3600.0*(ra_0p-ra_0m)
+        ddec_dx = fac*3600.0*(dec_p0-dec_m0)
+        ddec_dy = fac*3600.0*(dec_0p-dec_0m)
+
+        # need to scale dra b -cos(dec), minus sign since ra increases
+        # to the left
+        cosdec = -numpy.cos(dec*d2r)
+        dra_dx *= cosdec
+        dra_dy *= cosdec
+
+        return dra_dx, dra_dy, ddec_dx, ddec_dy
 
     def image2sky(self, x, y, distort=True):
         """
@@ -259,12 +298,12 @@ class WCS:
             raise ValueError(f"projection '{p}' not supported")
 
         longitude, latitude = self.image2sph(u, v)
-
         if arescalar:
             longitude, latitude = longitude[0], latitude[0]
+
         return longitude, latitude
 
-    def sky2image(self, lon, lat, distort=True, find=True):
+    def sky2image(self, lon, lat, distort=True, find=True, xtol=DEFTOL):
         """
         Usage:
             x,y=sky2image(longitude, latitude, distort=True, find=True)
@@ -279,6 +318,7 @@ class WCS:
             find: When the distortion model is present, simply find the
                 roots of the polynomial rather than using an inverse
                 polynomial.  This is more accurate but slower. Default True.
+            xtol: tolerance to use when root finding with find=True Default is 1e-8.
         Outputs:
             x,y: x and y coords in the image.  Will have the same shape as
                 lon,lat
@@ -289,16 +329,14 @@ class WCS:
             wcs = wcsutil.WCS(hdr)
             x,y = wcs.image2sky(ra,dec)
         """
-
         arescalar = isscalar(lon)
         longitude = numpy.array(lon, ndmin=1, dtype='f8', copy=False)
         latitude = numpy.array(lat, ndmin=1, dtype='f8', copy=False)
 
         # Only do this if there is distortion
         if find and self.distort['name'] != 'none':
-            x, y = self._findxy(longitude, latitude)
+            x, y = self._findxy(longitude, latitude, xtol=xtol)
         else:
-
             u, v = self.sph2image(longitude, latitude)
 
             p = self.projection.upper()
@@ -320,12 +358,10 @@ class WCS:
             x = xdiff + self.crpix[0]
             y = ydiff + self.crpix[1]
 
-        if arescalar:
-            return x[0], y[0]
         return x, y
 
     def ExtractProjection(self, wcs):
-        projection = wcs['ctype1'][4:].upper()
+        projection = wcs['ctype1'][4:].strip().upper()
         if projection not in _allowed_projections:
             err = ("Projection type {} unsupported.  Only [{}] projections currently supported")
             err = err.format(projection, ', '.join(_allowed_projections))
@@ -345,33 +381,31 @@ class WCS:
 
         return xp, yp
 
-    def image2sph(self, xin, yin):
+    def image2sph(self, x, y):
         """
         Convert x,y projected coordinates to spherical coordinates
         Currently only supports tangent plane projections.
         The conventions assumed are that of the WCS
         Works in the native system currently
         """
-
-        # Make sure ndmin=1 to avoid messed up scalar arrays
-        x = numpy.array(xin, ndmin=1, dtype='f8')
-        y = numpy.array(yin, ndmin=1, dtype='f8')
-
         if x.size != y.size:
             raise ValueError('x and y must be the same size')
 
-        latitude = numpy.zeros_like(x)
-        longitude = numpy.zeros_like(x)
-
-        latitude[:] = math.pi / 2
+        latitude = numpy.zeros_like(x) + math.pi/2
 
         # radius in radians
-        r = numpy.sqrt(x * x + y * y) * math.pi / 180.0
+        r = numpy.sqrt(x**2 + y**2) * math.pi / 180.0
+
+        scalar = isscalar(r)
 
         # not sure why this is being tested. r is always > 0
-        w, = numpy.where(r > 0)
-        if w.size > 0:  # pragma: no cover
-            latitude[w] = numpy.arctan(1.0 / r[w])
+        if scalar:
+            if r > 0:
+                latitude = numpy.arctan(1.0 / r)
+        else:
+            w, = numpy.where(r > 0)
+            if w.size > 0:
+                latitude[w] = numpy.arctan(1.0 / r[w])
 
         longitude = numpy.arctan2(x, -y)
 
@@ -382,23 +416,28 @@ class WCS:
 
 
         # Make sure the result runs from 0 to 360
-        w, = numpy.where(longitude < 0.0)
-        if w.size > 0:
-            longitude[w] += 360.0
-        w, = numpy.where(longitude >= 360.0)   # pretty sure this can never happen
-        if w.size > 0:      # pragma: no cover
-            longitude[w] -= 360.0
+        if scalar:
+            if longitude < 0.0:
+                longitude += 360.0
+
+            if longitude >= 360.0:
+                longitude -= 360.0
+
+        else:
+            w, = numpy.where(longitude < 0.0)
+            if w.size > 0:
+                longitude[w] += 360.0
+            w, = numpy.where(longitude >= 360.0)  # pretty sure this can never happen
+            if w.size > 0:      # pragma: no cover
+                longitude[w] -= 360.0
 
         return longitude, latitude
 
 
-    def sph2image(self, longitude_in, latitude_in):
+    def sph2image(self, longitude, latitude):
         """
         Must be a tangent plane projection
         """
-        longitude = numpy.array(longitude_in, ndmin=1, dtype='f8')
-        latitude = numpy.array(latitude_in, ndmin=1, dtype='f8')
-
         longitude, latitude = self.Rotate(longitude, latitude)
         longitude *= d2r
         latitude *= d2r
@@ -409,11 +448,17 @@ class WCS:
         x = numpy.zeros_like(longitude)
         y = numpy.zeros_like(longitude)
 
-        w, = numpy.where(latitude > 0.0)
-        if w.size > 0:
-            rdiv = r2d / numpy.tan(latitude[w])
-            x[w] = rdiv * numpy.sin(longitude[w])
-            y[w] = -rdiv * numpy.cos(longitude[w])
+        if isscalar(longitude):
+            if latitude > 0.0:
+                rdiv = r2d / numpy.tan(latitude)
+                x = rdiv*numpy.sin(longitude)
+                y = -rdiv*numpy.cos(longitude)
+        else:
+            w, = numpy.where(latitude > 0.0)
+            if w.size > 0:
+                rdiv = r2d / numpy.tan(latitude[w])
+                x[w] = rdiv * numpy.sin(longitude[w])
+                y[w] = -rdiv * numpy.cos(longitude[w])
 
         return x, y
 
@@ -453,11 +498,6 @@ class WCS:
                          [cp * cd, sp * cd, sd]],
                         dtype='f8')
 
-#        r = numpy.array([[(-sa * sp - ca * cp * sd), (sa * cp - ca * sp *sd, ca * cd)],
-#                         [(ca * sp - sa * cp * sd), (-ca * cp - sa * sp * sd, sa * cd)],
-#                         [(cp * cd), (sp * cd, sd)]],
-#                        dtype='f8')
-
         return r
 
 
@@ -478,15 +518,15 @@ class WCS:
         b2 = r[0, 2] * l + r[1, 2] * m + r[2, 2] * n
 
         # Account for possible roundoff
-        w, = numpy.where(b2 > 1.0)      # pragma: no cover
-        if w.size > 0:      # pragma: no cover
-            b2[w] = 1.0
-        w, = numpy.where(b2 < -1.0)      # pragma: no cover
-        if w.size > 0:      # pragma: no cover
-            b2[w] = -1.0
+        b2 = numpy.clip(b2, -1.0, 1.0)
 
-        lat_new = numpy.arcsin(b2) * r2d
+        lat_new = numpy.arctan2(b2, numpy.sqrt(b0 * b0 + b1 * b1)) * r2d
         lon_new = numpy.arctan2(b1, b0) * r2d
+
+        # there are no unittests so added this to make sure the new version works ok
+        #if False:
+        #    lat_new_old = numpy.arcsin(b2)*r2d
+        #    assert numpy.allclose(lat_new_old,lat_new),"New WCS arctan function not working!"
 
         return lon_new, lat_new
 
@@ -495,12 +535,24 @@ class WCS:
         x = numpy.array(xy[0])
         y = numpy.array(xy[1])
         lon, lat = self.image2sky(x, y)
-        lonlat = numpy.array([lon[0], lat[0]], dtype='f8')
+        lonlat = numpy.zeros(2)
+        lonlat[0] = lon
+        lonlat[1] = lat
         diff = lonlat - self.lonlat_answer
         return diff
 
+    def _fsolve_xy(self, xyguess, xtol=DEFTOL):
+        xy = scipy.optimize.fsolve(self._lonlatdiff, xyguess, xtol=xtol)
+        return xy
 
-    def _findxy(self, lon, lat):
+    def _lmfind_xy(self, xyguess):
+        lm_tup = leastsq(self._lonlatdiff, xyguess, full_output=1)
+        xy, _, _, errmsg, ier = lm_tup
+        if ier > 4:
+            raise RuntimeError("failed to find inverse transform: '%s'" % errmsg)
+        return xy
+
+    def _findxy(self, lon, lat, xtol=DEFTOL):
         """
         This is the simplest way to do the inverse of the (x,y)->(lon,lat)
         transformation when there are distortions.  Simply find the x,y
@@ -509,29 +561,43 @@ class WCS:
         Uses scipy.optimize.fsolve to find the roots of the transformation
         """
 
-        import scipy.optimize
-        #lon = numpy.array(lonin, ndmin=1, dtype='f8', copy=False)
-        #lat = numpy.array(latin, ndmin=1, dtype='f8', copy=False)
         if lon.size != lat.size:
             raise ValueError('lon and lat must be same size')
 
-        x = numpy.zeros_like(lon)
-        y = numpy.zeros_like(lon)
-        xyguess = numpy.zeros(2, dtype='f8')
-        self.lonlat_answer = numpy.zeros(2, dtype='f8')
-        for i in range(lon.size):
-            self.lonlat_answer[0], self.lonlat_answer[1] = lon[i], lat[i]
+        if isscalar(lon):
+            x, y = self._findxy_one(lon, lat, xtol=xtol)
+        else:
+            x = numpy.zeros_like(lon)
+            y = numpy.zeros_like(lon)
 
-            # Use inversion without distortion as our guess
-            xyguess[0], xyguess[1] = self.sky2image(lon[i], lat[i], find=False, distort=False)
-            xy = scipy.optimize.fsolve(self._lonlatdiff, xyguess)
-            x[i], y[i] = xy[0], xy[1]
-            #loncheck,latcheck = self.image2sky(x[i],y[i])
-            #lonerr, laterr = loncheck-lon[i], latcheck-lat[i]
+            for i in range(lon.size):
+                x[i], y[i] = self._findxy_one(lon[i], lat[i], xtol=xtol)
 
         return x, y
 
-    def Distort(self, xin, yin, inverse=False):
+    def _findxy_one(self, lon, lat, xtol=DEFTOL):
+        """
+        This is the simplest way to do the inverse of the (x,y)->(lon,lat)
+        transformation when there are distortions.  Simply find the x,y
+        that give the input lon,lat from the actual distortion function.
+
+        Uses scipy.optimize.fsolve to find the roots of the transformation
+        """
+        self.lonlat_answer[0] = lon
+        self.lonlat_answer[1] = lat
+
+        xyguess = self.xyguess
+
+        # Use inversion without distortion as our guess
+        xyguess[0], xyguess[1] = self.sky2image(lon, lat, find=False, distort=False)
+        xy = self._fsolve_xy(xyguess, xtol=xtol)
+        #print 'using lm'
+        #xy = self._lmfind_xy(xyguess)
+        x, y = xy[0], xy[1]
+
+        return x, y
+
+    def Distort(self, x, y, inverse=False):
         """
         Apply a distortion map to the data.  This follows the SIP convention,
         but if the scamp PV coefficients were found by the ConvertWCS code
@@ -540,12 +606,10 @@ class WCS:
         the application of the CD matrix as opposed to SIP.
 
         """
-
-        x = numpy.array(xin, ndmin=1, dtype='f8')
-        y = numpy.array(yin, ndmin=1, dtype='f8')
         # Sometimes there is no distortion model present
         if self.distort is None or self.distort['name'] == 'none':
-            return x, y
+            # return copies
+            return x*1.0, y*1.0
 
         if x.size != y.size:
             raise ValueError('x must be same size as y')
@@ -558,11 +622,11 @@ class WCS:
             b = self.distort['b']
 
         if self.distort['name'] == 'scamp':
-            xp = numpy.zeros_like(x)
-            yp = numpy.zeros_like(x)
+            xp = 0 * x
+            yp = 0 * y
         elif self.distort['name'] == 'sip':      # pragma: no cover
-            xp = x.copy()
-            yp = y.copy()
+            xp = x * 1.0
+            yp = y * 1.0
         else:      # pragma: no cover
             raise ValueError(f"Unsupported distortion model '{self.distort['name']}'")
 
@@ -572,7 +636,8 @@ class WCS:
         return xp, yp
 
 
-    def _compare_inversion(self, x, y, xback, yback, verbose=False, doplot=False, units=''):
+    def _compare_inversion(self, x, y, xback, yback,
+                           verbose=False, doplot=False, units=''):
         # Get rms differences
         t = (xback - x) ** 2 + (yback - y) ** 2
         rms = numpy.sqrt(t.sum() / t.size)
@@ -591,7 +656,8 @@ class WCS:
 
         return rms
 
-    def InvertDistortion(self, fac=5, order_increase=1, verbose=False, doplot=False):
+    def InvertDistortion(self, fac=5, order_increase=1,
+                         verbose=False, doplot=False):
         if self.distort['name'] == 'scamp':
             return self.InvertPVDistortion(fac=fac,
                                            order_increase=order_increase,
@@ -610,11 +676,6 @@ class WCS:
         """
         Invert the distortion model.  Must contain a,b matrices
         """
-
-        wcs = self.wcs
-        self.naxis = numpy.array([wcs['naxis1'],
-                                  wcs['naxis2']])
-
         # Order of polynomial
         sx, _ = self.distort['a'].shape
         porder = sx - 1
@@ -673,11 +734,6 @@ class WCS:
         """
         Invert the distortion model.  Must contain a,b matrices
         """
-
-        wcs = self.wcs
-        self.naxis = numpy.array([wcs['naxis1'],
-                                  wcs['naxis2']])
-
         # Order of polynomial
         sx, _ = self.distort['a'].shape
         porder = sx - 1
@@ -769,9 +825,9 @@ class WCS:
 
                 if latitude_p1 > 90.0 and latitude_p2 > 90.0:
                     raise ValueError('No valid solution')
-                if latitude_p1 < 90.0 and latitude_p2 > 90.0:
+                if latitude_p1 < 90.0 < latitude_p2:
                     latitude_p = term1 + term2
-                elif latitude_p1 > 90.0 and latitude_p2 < 90.0:
+                elif  latitude_p2 < 90.0 < latitude_p1:
                     latitude_p = term1 - term2
                 else:
                     # Two valid solutions
@@ -808,7 +864,7 @@ class WCS:
 
 
     # disableing coverage because this method is problematic
-    # it wants anumpy array with fields, but then doen't care what those fields are
+    # it wants a numpy array with fields, but then doen't care what those fields are
     # or a dict - which seems ok
     # or something else that is also a dict in structure, but not an actual dict (or subclass)
     # or yet something else that is also a dict in structure, but not an actual dict (or subclass)
@@ -844,15 +900,18 @@ class WCS:
             wcs = wcs_in.copy()
         elif hasattr(wcs_in, '__iter__'):
             wcs = {}
-            for j in wcs_in:
-                if j is not None: # KLUGDE
-                    wcs[j.lower()] = wcs_in[j]
+            for k in wcs_in:
+                if k is None:
+                    continue
+                wcs[k.lower()] = wcs_in[k]
         else:
             # Try to use the items() method to get what we want
             wcs = {}
             try:
-                for key, val in wcs_in.items():
-                    wcs[key.lower()] = val
+                for k, v in wcs_in.items():
+                    if k is None:
+                        continue
+                    wcs[k.lower()] = v
             except:
                 raise ValueError('Input wcs must be a numpy array '+
                                  'with fields or a dictionary or support '+
@@ -979,8 +1038,8 @@ class WCS:
                                   wcs['crpix2']], dtype='f8')
         self.crval = numpy.array([wcs['crval1'],
                                   wcs['crval2']], dtype='f8')
-        self.ctype = numpy.array([wcs['ctype1'],
-                                  wcs['ctype2']])
+        self.ctype = numpy.array([wcs['ctype1'].strip().upper(),
+                                  wcs['ctype2'].strip().upper()])
 
         # Get the projection from ctype
         self.projection = self.ExtractProjection(wcs)
@@ -1029,6 +1088,13 @@ class WCS:
 
         # Extract the distortion model
         self.ExtractDistortionModel()
+
+    def _set_naxis(self):
+        wcs = self.wcs
+        if 'znaxis1' in wcs:
+            self.naxis = numpy.array([wcs['znaxis1'], wcs['znaxis2']])
+        else:
+            self.naxis = numpy.array([wcs['naxis1'], wcs['naxis2']])
 
 def _dict_get(d, key, default=None):
     if key not in d:
@@ -1104,7 +1170,7 @@ def make_amatrix(u, v, order, constant=True):
     #n = n*n
     n = u.size
 
-    tshape = [int((order + 1) * (order + 2) / 2) - 1, n]
+    tshape = [(order + 1) * (order + 2) // 2 - 1, n]
     if constant:
         # Extra column with ones in it for the constant term
         tshape[0] += 1
@@ -1117,7 +1183,7 @@ def make_amatrix(u, v, order, constant=True):
     kk = kstart
     for order in range(1, order + 1):
         for jj in range(order + 1):
-            amatrix[kk, :] = (u ** (order - jj)) * (v ** jj)
+            amatrix[kk, :] = (u ** (order - jj)) * v ** jj
             kk += 1
 
     return amatrix
@@ -1183,7 +1249,7 @@ def Invert2DPolynomial(u, v, x, y, porder, pack=True, constant=True):
     return xcoeffs, ycoeffs
 
 def Ncoeff(order, constant=True):
-    ncoeff = (order+1) * (order + 2) / 2
+    ncoeff = (order + 1) * (order + 2) // 2
     if not constant:
         ncoeff -= 1
     return ncoeff
@@ -1234,7 +1300,7 @@ def test_invert_2dpoly(porder, fac=5, constant=True, order_increase=0, inverse=F
          0.0, 0.0, 0.0, 0.0], dtype='f8')
 
     # number to actuall use
-    ncoeff = (porder + 1) * (porder + 2) / 2
+    ncoeff = (porder + 1) * (porder + 2) // 2
     keep = numpy.arange(start, ncoeff)
     ucoeffs_in = ucoeffs_in[keep]
     vcoeffs_in = vcoeffs_in[keep]
