@@ -1,5 +1,5 @@
 import numpy
-from despyastro import wcsutil
+from esutil import wcsutil
 
 def update_DESDM_corners(hdr, border=0, get_extent=False, verb=False, logger=None):
     """
