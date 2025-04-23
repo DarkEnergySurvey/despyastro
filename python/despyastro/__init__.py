@@ -11,5 +11,5 @@ from . import genutil
 from .genutil import *
 
 __author__ = "Felipe Menanteau"
-__version__ = '0.3.9'
+__version__ = '3.1.0'
 version = __version__
